@@ -1,0 +1,130 @@
+# Build one variant of R-devel, test it with its consumer script, and
+# optionally publish it as an image. Runs only when triggered by hand.
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Variant: a directory under variants/'
+        required: true
+        default: 'array-subset'
+      r_ref:
+        description: 'r-devel/r-svn commit, branch or tag (main = latest R-devel)'
+        required: true
+        default: 'main'
+      make_check:
+        description: "Run R's own 'make check' (adds about 15 minutes)"
+        type: boolean
+        default: false
+      publish:
+        description: 'Push the image to ghcr.io if the consumer tests pass'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-${{ inputs.variant }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      VARIANT: ${{ inputs.variant }}
+      R_REF: ${{ inputs.r_ref }}
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the variant name
+        run: |
+          if ! [[ "$VARIANT" =~ ^[a-z0-9][a-z0-9-]*$ ]] || [ ! -d "variants/$VARIANT" ]; then
+            echo "::error::no variant '$VARIANT'; choose one of: $(ls variants | tr '\n' ' ')"
+            exit 1
+          fi
+
+      - name: Resolve the R-devel commit
+        id: src
+        run: |
+          if [[ "$R_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            sha="$R_REF"
+          else
+            sha="$(git ls-remote https://github.com/r-devel/r-svn.git "$R_REF" | head -n1 | cut -f1)"
+          fi
+          if [ -z "$sha" ]; then echo "::error::cannot resolve '$R_REF' in r-devel/r-svn"; exit 1; fi
+          git init -q /tmp/r-svn && cd /tmp/r-svn
+          git fetch -q --depth 1 https://github.com/r-devel/r-svn.git "$sha"
+          rev="$(git log -n1 --format=%B FETCH_HEAD | sed -n 's/^git-svn-id: [^@]*@\([0-9]*\) .*/\1/p')"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "rev=${rev:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "R-devel: r-devel/r-svn@$sha (svn r${rev:-unknown})"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Same variant, same R commit and same patches = a cached build: re-runs
+      # of the consumer tests take a minute, not a rebuild.
+      - name: Build R
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: |
+            VARIANT=${{ inputs.variant }}
+            R_SVN_REF=${{ steps.src.outputs.sha }}
+            MAKE_CHECK=${{ inputs.make_check }}
+          tags: |
+            ${{ env.IMAGE }}:${{ inputs.variant }}
+            ${{ env.IMAGE }}:${{ inputs.variant }}-r${{ steps.src.outputs.rev }}
+          load: true
+          cache-from: type=gha,scope=${{ inputs.variant }}
+          cache-to: type=gha,scope=${{ inputs.variant }},mode=max
+
+      - name: What was built
+        run: docker run --rm "$IMAGE:$VARIANT" bash -c 'cat /opt/R/variant/VARIANT.txt; R --version | head -n1'
+
+      - name: Consumer tests
+        run: |
+          if [ -f "variants/$VARIANT/consumer.sh" ]; then
+            docker run --rm -v "$PWD:/work:ro" "$IMAGE:$VARIANT" bash "/work/variants/$VARIANT/consumer.sh"
+          else
+            echo "no consumer.sh for $VARIANT; smoke test only"
+            docker run --rm "$IMAGE:$VARIANT" Rscript -e 'sessionInfo()'
+          fi
+
+      - name: Log in to ghcr.io
+        if: inputs.publish
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish
+        if: inputs.publish
+        run: |
+          docker push "$IMAGE:$VARIANT"
+          docker push "$IMAGE:$VARIANT-r${{ steps.src.outputs.rev }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### r-variants: \`$VARIANT\`"
+            echo
+            echo "- R-devel: r-devel/r-svn@\`${{ steps.src.outputs.sha }}\` (svn r${{ steps.src.outputs.rev }})"
+            echo "- make check: ${{ inputs.make_check }}"
+            if [ "${{ inputs.publish }}" = "true" ]; then
+              echo "- image: \`$IMAGE:$VARIANT\` and \`$IMAGE:$VARIANT-r${{ steps.src.outputs.rev }}\`"
+              echo
+              echo '```sh'
+              echo "docker run --rm -it $IMAGE:$VARIANT"
+              echo '```'
+            else
+              echo "- not published (publish was false)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
