@@ -1,0 +1,51 @@
+# Cheap drift check: do each variant's patches still apply to current
+# R-devel? No compiling, about a minute.
+name: patches-apply
+
+on:
+  push:
+    paths: ['variants/**', 'scripts/**', '.github/workflows/patches-apply.yaml']
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays 03:17 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Latest R-devel
+        run: |
+          git clone -q --depth 1 https://github.com/r-devel/r-svn.git /tmp/r-svn
+          git -C /tmp/r-svn log -n1 --format='r-devel/r-svn@%H %ad'
+
+      - name: Apply each variant's patches
+        run: |
+          status=0
+          {
+            echo "### Patches against r-devel/r-svn@$(git -C /tmp/r-svn rev-parse --short HEAD)"
+            echo
+            echo "| Variant | Patches | Result |"
+            echo "| --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for d in variants/*/; do
+            v="$(basename "$d")"
+            shopt -s nullglob
+            patches=("$d"patches/*.patch)
+            git -C /tmp/r-svn checkout -q -- . && git -C /tmp/r-svn clean -qfd
+            result="applies"
+            for p in "${patches[@]}"; do
+              if ! git -C /tmp/r-svn apply --whitespace=nowarn "$PWD/$p"; then
+                result="FAILS at $(basename "$p")"; status=1; break
+              fi
+            done
+            [ ${#patches[@]} -eq 0 ] && result="no patches"
+            echo "$v: $result"
+            echo "| $v | ${#patches[@]} | $result |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit $status
