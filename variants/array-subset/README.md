@@ -19,8 +19,9 @@ method does not change the ABI for compiled packages.
   `#ifdef R_ALTREP_HAS_EXTRACT_ARRAY_SUBSET`.
 - Background: [What R does today with an ALTREP that has a dim and no
   class](https://hypertidy.org/posts/2026-10-01_altrep-dim-no-class/).
-- Design notes and measurements: `r-patch/README.md` on altarr's
-  `exp/r-hook` branch.
+- Design notes and measurements:
+  [`r-patch/README.md`](https://github.com/hypertidy/altarr/blob/exp/r-hook/r-patch/README.md)
+  on altarr's `exp/r-hook` branch.
 
 ## Try it
 
