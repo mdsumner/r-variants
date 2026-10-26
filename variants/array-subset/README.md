@@ -13,7 +13,8 @@ objects forward the method. The method table is allocated by R, so adding a
 method does not change the ABI for compiled packages.
 
 - Patch: `patches/0001-ALTREP-Extract_array_subset.patch` (6 files, about
-  100 lines, with a NEWS entry). First written against svn r90638.
+  100 lines, with a NEWS entry). First written against svn r90638;
+  revised 2026-10-26 against r90726.
 - Consumer: [altarr](https://github.com/hypertidy/altarr), branch
   `exp/r-hook`, which implements the method behind
   `#ifdef R_ALTREP_HAS_EXTRACT_ARRAY_SUBSET`.
