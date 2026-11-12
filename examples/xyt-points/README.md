@@ -30,7 +30,8 @@ docker run --rm -v "$PWD:/work" -w /work/examples/xyt-points \
   ghcr.io/mdsumner/r-variants:baseline bash run.sh mizu VHM0 300 4
 ```
 
-`install.R` installs altarr and zaro from GitHub and blosc (and mizu for
+`XYT_MAX_CON` (default 8) sets the connection cap for the live runs, e.g.
+`XYT_MAX_CON=16 bash run.sh live` (or `docker run -e XYT_MAX_CON=16 ...`). `install.R` installs altarr and zaro from GitHub and blosc (and mizu for
 the last one) from CRAN on first run.
 
 ## Files
@@ -68,6 +69,34 @@ the chunks each strategy touches:
 - Linear interpolation is nearly free when planned (corners share
   chunks), except time interpolation on one-step-per-chunk layouts, which
   doubles the chunk count.
+
+## Measured (2026-11-13, one workstation, 8 connections)
+
+Offline, synthetic array with 0.05 s per fetch call:
+
+| Read | Fetch calls | Chunks | Time |
+| --- | --- | --- | --- |
+| planned, nearest (one `x[idx]`) | 1 | 291 | 0.93 s |
+| per-point loop | 291 | 291 | 15.9 s |
+| planned, linear (8-value stencil) | 1 | 401 | 1.26 s |
+
+The loop makes 291 calls, not 300: repeats come from altarr's chunk cache.
+The 17x is round trips alone; the chunks are the same.
+
+Live, CMEMS `VHM0` (1800 x 899 x 136360, 3-hourly 1980 to 2026), 300
+points: opened in 5.1 s; one fetch call, 268 chunks, 23.2 s; NA rate
+0.003 (land, ice).
+
+Fetch against decode, from `cmems_mizu.R`:
+
+| Decode | Fetch | Decode |
+| --- | --- | --- |
+| serial, main thread | 18.3 s | 4.5 s |
+| mizu pool, 4 workers | 17.7 s | 1.8 s |
+
+Fetch is about 80% of the time, so the connection cap and the endpoint
+set the pace. Decode (blosc lz4, float32, CF masking) is the other 20%,
+and a 4-worker mizu pool cuts it 2.5x with identical values.
 
 ## The CMEMS store, and doing it by hand
 

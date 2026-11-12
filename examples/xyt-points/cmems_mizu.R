@@ -16,6 +16,7 @@
 #   Rscript cmems_mizu.R [VAR] [N] [WORKERS]     defaults VHM0, 300, 4
 # ASCII only.
 
+options(zaro.max_con = as.integer(Sys.getenv("XYT_MAX_CON", "8")))
 library(zaro)
 library(altarr)
 library(mizu)
