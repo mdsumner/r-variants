@@ -21,6 +21,14 @@ docker run --rm -it ghcr.io/mdsumner/r-variants:array-subset
 | [`baseline`](variants/baseline) | Nothing: stock R-devel, for comparison at the same revision | altarr, without the hook |
 | [`array-subset`](variants/array-subset) | ALTREP `Extract_array_subset` method: `x[i, j, k]` on an ALTREP array is offered as one request | [altarr](https://github.com/hypertidy/altarr) `exp/r-hook` |
 
+## Examples
+
+Runnable examples that use the images:
+
+| Example | What it shows |
+| --- | --- |
+| [`examples/xyt-points`](examples/xyt-points) | Values at (x, y, t) points from a chunked array (synthetic, and the CMEMS global waves Zarr) with altarr and zaro: one planned batch of distinct chunks; optional chunk decode on a mizu pool |
+
 ## How this relates to what already exists
 
 - **[r-devel/r-svn](https://github.com/r-devel/r-svn)** builds and checks
