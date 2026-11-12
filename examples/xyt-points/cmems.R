@@ -15,6 +15,7 @@
 # come from altarr and zaro.
 # ASCII only.
 
+options(zaro.max_con = as.integer(Sys.getenv("XYT_MAX_CON", "8")))
 library(zaro)
 library(altarr)
 source("xyt_extract.R")
