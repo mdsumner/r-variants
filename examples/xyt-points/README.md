@@ -98,6 +98,20 @@ Fetch is about 80% of the time, so the connection cap and the endpoint
 set the pace. Decode (blosc lz4, float32, CF masking) is the other 20%,
 and a 4-worker mizu pool cuts it 2.5x with identical values.
 
+Connection cap (2026-11-16), `cmems.R` with `XYT_MAX_CON` set, the same
+300 points and 268 chunks, two runs each, alternated:
+
+| `XYT_MAX_CON` | Run 1 | Run 2 |
+| --- | --- | --- |
+| 8 | 23.3 s | 22.6 s |
+| 16 | 14.7 s | 14.7 s |
+| 32 | 11.1 s | 11.2 s |
+
+16 is about 1.55x faster than 8 and 32 about 2.1x, with identical values.
+The gain shrinks from 16 to 32 because these times include about 4.5 s of
+serial decode, which more connections do not touch. The default stays 8;
+`XYT_MAX_CON=16` or `32` is worth setting against this endpoint.
+
 ## The CMEMS store, and doing it by hand
 
 The geoChunked waves store has chunks of 17720 time steps x 8 lat x 4 lon
