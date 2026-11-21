@@ -68,6 +68,8 @@ Settings, all optional, passed with `sbatch --export=ALL,NAME=value`:
 | `BOOK_PULL` | unset | `1` pulls the image again (after it is rebuilt) |
 | `BOOK_MAX_CON` | `8` | connection cap for the Copernicus and EOPF chapters |
 | `BOOK_THREDDS_CON` | `4` | connection cap for reads from NCI THREDDS |
+| `BOOK_TRIES`, `BOOK_RETRY_WAIT` | `3`, `60` | attempts at a read that fails, and seconds between them |
+| `BOOK_PAUSE` | `60` | seconds between the two builds on a live script |
 | `BOOK_LATENCY` | `0.05` | seconds per fetch call in the simulated stores |
 | `BOOK_SIF` | `$MYSCRATCH/altarr-book/book.sif` | where the image is kept |
 | `BOOK_SINGULARITY_MODULE` | `singularity/4.1.0-slurm` | check with `module avail singularity` |

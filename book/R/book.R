@@ -38,7 +38,7 @@ book_run <- function(script, live = FALSE) {
   for (b in names(builds)) {
     # a breath between builds, so the second does not meet a server the
     # first has just worked hard
-    if (live && length(parts)) Sys.sleep(as.numeric(Sys.getenv("BOOK_PAUSE", "20")))
+    if (live && length(parts)) Sys.sleep(as.numeric(Sys.getenv("BOOK_PAUSE", "60")))
     out <- tempfile(fileext = ".csv")
     log <- file.path("results", sprintf("%s.%s.log", name, b))
     status <- suppressWarnings(system2(
@@ -89,23 +89,37 @@ book_table <- function(res) {
     ifelse(is.na(v), "", formatC(as.numeric(v), format = "f", digits = digits,
                                  big.mark = ","))
   }
-  b1 <- builds[length(builds)]
-  out <- data.frame(Read = cases, Values = num(col(b1, "n")),
-                    Chunks = num(col(b1, "chunks")),
+  failed <- function(b) as.character(col(b, "check")) %in% "failed"
+  # counts from a build that completed the read, where there is one
+  best <- function(v) {
+    out <- rep(NA_real_, length(cases))
+    for (b in builds) {
+      x <- as.numeric(col(b, v))
+      use <- is.na(out) & !failed(b)
+      out[use] <- x[use]
+    }
+    out
+  }
+  out <- data.frame(Read = cases, Values = num(best("n")),
+                    Chunks = num(best("chunks")),
                     check.names = FALSE, stringsAsFactors = FALSE)
-  if (!all(is.na(col(b1, "mb")))) out[["MB"]] <- num(col(b1, "mb"), 1)
+  if (!all(is.na(best("mb")))) out[["MB"]] <- num(best("mb"), 1)
   for (v in list(c("Fetch calls", "fetch_calls", 0), c("Requests", "requests", 0),
                  c("Seconds", "seconds", 2))) {
     for (b in builds) {
       x <- col(b, v[2])
-      if (!all(is.na(x))) out[[paste0(v[1], ", ", b)]] <- num(x, as.integer(v[3]))
+      if (all(is.na(x)) && v[2] != "seconds") next
+      cell <- num(x, as.integer(v[3]))
+      cell[failed(b)] <- if (v[2] == "seconds") "failed" else ""
+      out[[paste0(v[1], ", ", b)]] <- cell
     }
   }
   if (length(builds) == 2L) {
-    out[["Faster by"]] <- sprintf("%.1fx", col("stock", "seconds") /
-                                    pmax(col("patched", "seconds"), 0.001))
+    ratio <- col("stock", "seconds") / pmax(col("patched", "seconds"), 0.001)
+    out[["Faster by"]] <- ifelse(is.na(ratio), "", sprintf("%.1fx", ratio))
+    done <- !failed("stock") & !failed("patched")
     same <- as.character(col("stock", "check")) == as.character(col("patched", "check"))
-    out[["Same values"]] <- ifelse(is.na(same), "", ifelse(same, "yes", "NO"))
+    out[["Same values"]] <- ifelse(!done | is.na(same), "", ifelse(same, "yes", "NO"))
   }
   knitr::kable(out, align = c("l", rep("r", ncol(out) - 1L)),
                caption = attr(res, "stamp"))

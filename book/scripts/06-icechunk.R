@@ -51,7 +51,8 @@ print(dives)
 
 ## the model
 bran <- zaro_dataset(zaro(paste0("flatrefs://", coop,
-                                "bluelink/bluelink-daily-temp/flat")))
+                                "bluelink/bluelink-daily-temp/flat"),
+                         target = "public"))
 temp <- zaro_array(bran, "temp", cf = TRUE)              # degrees C, land as NA
 cat("temp:", paste(dim(temp), collapse = " x "), "\n")
 xt <- as.vector(zaro_read(bran, "xt_ocean"))
@@ -72,10 +73,12 @@ a <- bench("model: the profile under each dive, a loop of temp[i, j, , t]", temp
            vapply(seq_len(nd), function(p) temp[i[p], j[p], , k[p]], numeric(nz)))
 idx <- cbind(rep(i, each = nz), rep(j, each = nz), rep(seq_len(nz), nd), rep(k, each = nz))
 b <- bench("model: the same values as one matrix subscript, temp[idx]", temp, temp[idx])
-stopifnot(isTRUE(all.equal(as.vector(a), b)))
+if (!is.null(a) && !is.null(b)) {
+  stopifnot(isTRUE(all.equal(as.vector(a), b)), any(is.finite(a)))
+}
 
 ## both, for the figure in the chapter
-if (dir.exists("results")) {
+if (dir.exists("results") && !is.null(seal) && !is.null(a)) {
   pres <- obs_p[, sel]
   out <- rbind(
     data.frame(dive = rep(seq_len(nd), each = nrow(seal)), source = "seal",

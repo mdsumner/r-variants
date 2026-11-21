@@ -55,7 +55,8 @@ The columns:
 - **Same values**: the two builds returned the same numbers.
 
 A read that fails, usually a server dropping a connection, is retried
-after a pause, and the time shown is the attempt that succeeded. Timings
+after a pause, and the time shown is the attempt that succeeded. A cell
+that says "failed" is a read that did not complete in three attempts. Timings
 from a live store are one run on one day; read them as ratios, not
 benchmarks. Where a table's caption says "Earlier run", this render did not
 reach that store and the last saved result is shown instead.

@@ -65,6 +65,14 @@ lets R be the polite client.
 book_elt(res)
 ```
 
+::: {.callout-note}
+If the stock column says "failed", that is a result too. On the first
+renders of this chapter, from a GitHub runner on 2026-11-21, the patched
+build's surface map went through in two requests each time, and the stock
+build's 60 requests, one after another on new connections, were reset by
+the server on every attempt.
+:::
+
 ## A track is already fine
 
 One read from this store needs no patch: values along a track, one

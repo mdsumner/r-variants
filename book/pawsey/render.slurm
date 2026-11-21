@@ -44,6 +44,11 @@ export SINGULARITYENV_BOOK_MODE="${1:-${BOOK_MODE:-live}}"
 export SINGULARITYENV_BOOK_MAX_CON="${BOOK_MAX_CON:-8}"
 export SINGULARITYENV_BOOK_THREDDS_CON="${BOOK_THREDDS_CON:-4}"
 export SINGULARITYENV_BOOK_LATENCY="${BOOK_LATENCY:-0.05}"
+# any other BOOK_* setting goes through as it is
+for v in $(compgen -e | grep '^BOOK_' || true); do
+  case "$v" in BOOK_MODE|BOOK_SIF|BOOK_IMAGE|BOOK_PULL|BOOK_SINGULARITY_MODULE) continue ;; esac
+  export "SINGULARITYENV_$v=${!v}"
+done
 export SINGULARITYENV_TMPDIR=/work-tmp
 shift || true
 
