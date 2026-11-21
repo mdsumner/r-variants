@@ -22,8 +22,8 @@ for home in /opt/R/baseline /opt/R/variant; do
     install.packages(pk, Ncpus = parallel::detectCores())
     ok <- vapply(pk, requireNamespace, logical(1), quietly = TRUE)
     if (!all(ok)) stop("not installed: ", paste(pk[!ok], collapse = ", "))'
-  "$home/bin/R" CMD INSTALL --no-docs /tmp/altarr
-  "$home/bin/R" CMD INSTALL --no-docs /tmp/zaro
+  "$home/bin/R" CMD INSTALL --preclean --no-docs /tmp/altarr
+  "$home/bin/R" CMD INSTALL --preclean --no-docs /tmp/zaro
   if [ "$WITH_ICECHUNK" = "true" ]; then
     ICECHUNK_FEATURES=minimal NOT_CRAN=true "$home/bin/Rscript" -e '
       install.packages("tabularberg",
