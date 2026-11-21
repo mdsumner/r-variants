@@ -1,0 +1,73 @@
+# A virtual store: BRAN2023 on THREDDS {#sec-virtual}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+Most of the world's gridded data is not Zarr and will not be rewritten as
+Zarr. It is NetCDF and HDF5, in archives, served as files. A *virtual*
+Zarr store leaves those files alone and keeps a table of references: for
+each chunk, which file, which byte offset, how many bytes. Kerchunk and
+VirtualiZarr write such tables; zaro reads them (kerchunk JSON and
+Parquet, VirtualiZarr Parquet manifests, byterefs tables) and from then on
+the store behaves like any other.
+
+BRAN2023 is CSIRO's Bluelink ocean reanalysis: daily fields at 51 depths
+on a 0.1 degree global grid, 2010 to 2024, about 11 TB of NetCDF on NCI's
+THREDDS server. A VirtualiZarr reference store for it lives
+[on GitHub](https://github.com/mdsumner/virtualized). Temperature is one
+array of 3600 x 1500 x 51 x 5479 values in chunks of 300 x 300 x 1 x 1:
+each chunk is a tile of one depth on one day, a few tens of kilobytes
+inside a monthly NetCDF file.
+
+```r
+bran <- zaro("virtualizarr://https://raw.githubusercontent.com/mdsumner/virtualized/refs/heads/main/remote/ocean_temp_2023.parq")
+temp <- zaro_array(bran, "temp", cf = TRUE)    # degrees C
+dim(temp)
+#> [1] 3600 1500   51 5479
+```
+
+No NetCDF library is involved, and nothing is copied.
+
+## The reads
+
+A surface map for one day (60 chunks, all in one file); a profile at one
+cell (51 chunks, one per depth); a north-south section by depth; and a
+month of surface values at one cell.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/04-virtual.R
+```
+
+```{r}
+res <- book_run("04-virtual.R", live = TRUE)
+book_table(res)
+```
+
+This store shows something the native Zarr store could not. When zaro is
+given a whole batch, it looks at the byte ranges, and ranges that touch in
+the same file are merged into one request. The 60 tiles of a surface map
+sit end to end in the NetCDF file, so a planned read of the map can be a
+single HTTP request. Asked one chunk at a time, there is nothing to merge:
+60 requests to a THREDDS server, in series.
+
+So here the **Requests** column can differ between builds, while **MB**
+stays the same. Fewer, larger requests are kinder to an archive server
+than many small ones, as well as faster for the reader. The patch is what
+lets R be the polite client.
+
+```{r}
+book_elt(res)
+```
+
+## A track is already fine
+
+One read from this store needs no patch: values along a track, one
+(x, y, depth, day) per row, is a matrix subscript (@sec-points). A 30-day
+track off Tasmania was 30 byte ranges from 30 files, one fetch call, 2 MB
+in half a second (measured 2026-10-03). The profile and the section above
+are the same data asked for as rectangles, and that is the only reason
+they fare differently.

@@ -1,0 +1,69 @@
+# Preface {.unnumbered}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+R's arrays are a vector with a `dim` attribute, and R's `[` is one of the
+richest indexing languages there is. ALTREP lets a package supply the
+vector: the values can live in a Zarr store on object storage, in NetCDF
+files behind a reference table, or in an Icechunk repository, and be read
+only when R asks for them. The object has no class. To R, and to every
+function ever written for arrays, it is an array.
+
+That works today, with one gap. When you write `x[i, j, k]`, R asks the
+object for the result one element at a time. A store that could have fetched
+the 60 chunks it needs in one concurrent batch instead sees millions of
+single-element questions and answers them chunk by chunk, in series.
+
+The proposed change to R is one optional ALTREP method,
+`Extract_array_subset`: about 100 lines that let R hand the whole request
+over. This book is the case for it, made with reads from real stores.
+
+The short version:
+
+- `x[cbind(i, j, k)]` and `x[i]` already reach an ALTREP array whole, on
+  any released R. Planned point extraction works now (@sec-points).
+- `x[i, j, k]` and `m[i, j]` do not. Same chunks, same bytes, but one
+  round trip per chunk instead of one batch (@sec-rectangles).
+- On real stores that is the difference between a map arriving in one
+  merged request and in 60 (@sec-cmems, @sec-virtual, @sec-sharded,
+  @sec-icechunk).
+- With the method, code that knows nothing about lazy arrays gets planned
+  reads: `apply()`, loops, negative and logical and character subscripts
+  (@sec-ordinary).
+- The patch changes nothing for any existing class, and the package ABI
+  does not move (@sec-patch).
+
+## How to read the tables
+
+Every table in this book is produced when the book is rendered. Each
+example is a script in
+[`book/scripts`](https://github.com/mdsumner/r-variants/tree/main/book/scripts)
+that is run twice: once with stock R-devel and once with R-devel plus the
+patch, both in the same container, with the same altarr and zaro source.
+The columns:
+
+- **Chunks**: distinct chunks the read needs. The same in both builds.
+- **Fetch calls**: how many times R's requests reached the store as a
+  batch. One is the goal.
+- **Requests** and **MB**: HTTP requests sent and bytes received, for
+  stores read over the network.
+- **Seconds**: wall time. The patched build runs first, so a warm cache
+  anywhere along the way counts against the patch, not for it.
+- **Same values**: the two builds returned the same numbers.
+
+Timings from a live store are one run on one day; read them as ratios, not
+benchmarks. Where a table's caption says "Earlier run", this render did not
+reach that store and the last saved result is shown instead.
+
+## This render
+
+```{r}
+#| comment: ""
+book_stamp()
+```
+
+To run it again, on Pawsey or anywhere with a container runtime, see
+@sec-rebuild.

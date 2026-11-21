@@ -1,0 +1,33 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "Lazy arrays in base R"
+  subtitle: "Worked examples for the proposed ALTREP Extract_array_subset method"
+  author: "Michael Sumner"
+  repo-url: https://github.com/mdsumner/r-variants
+  repo-subdir: book
+  chapters:
+    - index.qmd
+    - 01-points.qmd
+    - 02-rectangles.qmd
+    - 03-cmems.qmd
+    - 04-virtual.qmd
+    - 05-sharded.qmd
+    - 06-icechunk.qmd
+    - 07-ordinary-code.qmd
+    - 08-patch.qmd
+  appendices:
+    - rebuild.qmd
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    number-sections: true
+    code-overflow: wrap
+
+execute:
+  echo: false
+  freeze: false

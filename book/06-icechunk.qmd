@@ -1,0 +1,59 @@
+# Icechunk: a versioned store {#sec-icechunk}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+[Icechunk](https://icechunk.io) puts a transaction log in front of Zarr:
+snapshots, branches and tags, so a reader can pin a version and keep
+reading it while writers move on. Chunks are found through the snapshot's
+manifest, not by key, and a chunk can be native (stored in the
+repository), inline, or virtual (a byte range of a file somewhere else).
+
+In R, [tabularberg](https://github.com/hypertidy/tabularberg) wraps the
+Icechunk Rust library, and zaro opens a repository as a store:
+
+```r
+store <- zaro_icechunk("https://.../repo", tag = "v1")
+store@snapshot                 # the version this store is pinned to
+x <- zaro_array(store, "temperature", cf = TRUE)
+```
+
+From there it is the same lazy array as in every other chapter, and the
+same question: does `x[i, j]` reach it as one request?
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/06-icechunk.R
+```
+
+```{r}
+res <- book_run("06-icechunk.R")
+book_table(res)
+```
+
+```{r}
+book_elt(res)
+```
+
+::: {.callout-note}
+This is a placeholder for a real repository. The example is the small one
+tabularberg writes to a temporary directory, so it shows the mechanism
+(pinned snapshot, virtual chunks, one planned request) and not a
+meaningful timing. tabularberg needs a recent Rust toolchain to build, so
+it is only in the book image when the image is built with
+`WITH_ICECHUNK=true` (@sec-rebuild). Without it this chapter has no
+table.
+:::
+
+## Why the batch matters more here
+
+With a plain Zarr store a chunk's address is its key. With Icechunk each
+chunk is looked up in a manifest, and a virtual chunk then points at
+another host. A reader given the whole request resolves all the
+references in one pass over the manifest and can group the fetches by
+host. A reader given one element at a time does that lookup once per
+chunk. The deeper the indirection, the more a store gains from being
+asked once.

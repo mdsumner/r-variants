@@ -1,0 +1,6 @@
+/_book/
+/.quarto/
+/results/*.log
+*_files/
+*.html
+/site_libs/

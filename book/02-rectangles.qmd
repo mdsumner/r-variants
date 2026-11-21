@@ -1,0 +1,64 @@
+# The gap: rectangles {#sec-rectangles}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+There are three ways through R's subsetting code, and an ALTREP array is
+treated differently on each.
+
+| You write | R calls | The array sees | Can it plan? |
+|---|---|---|---|
+| `x[i]` | `VectorSubset()` | `Extract_subset`, every index at once | yes |
+| `x[cbind(i, j, k)]` | `VectorSubset()` after `mat2indsub()` | `Extract_subset`, every index at once | yes |
+| `x[i, j, k]`, `m[i, j]` | `ArraySubset()`, `MatrixSubset()` | `Elt`, one element at a time | no |
+
+In the third row R has done the hard part already. `ArraySubset()` and
+`MatrixSubset()` turn each subscript (negative, logical, character,
+missing) into a vector of positive positions, one per dimension. That list
+is the hyperslab. R then walks every output cell and asks the object for
+that one element.
+
+The patch offers the list to the object first. If the object's class has
+an `Extract_array_subset` method and it returns the values, R skips the
+walk. Otherwise nothing changes.
+
+## The example
+
+A simulated store, so that the only thing measured is how R asks: 48
+million doubles in 480 chunks, never allocated, and a 12 million cell
+matrix. Each fetch call takes 50 ms however many chunks it carries, the
+way one round of concurrent requests does.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/02-rectangles.R
+```
+
+```{r}
+res <- book_run("02-rectangles.R")
+book_table(res)
+```
+
+The chunk counts match across builds: the patch does not change what is
+read, only how it is asked for. On stock R the store hears from R once per
+chunk, in series, in between a great many single-element calls:
+
+```{r}
+book_elt(res)
+```
+
+The last row is the workaround that exists today. `altarr_extract()` does
+the planned read on any R, and it is the same speed in both builds. But it
+is a function you have to know about and call. Code written for arrays
+calls `[`.
+
+## Why the element loop cannot be rescued from the inside
+
+A class can make `Elt` fast for a cached chunk, and altarr does. What it
+cannot do from inside `Elt` is know what is coming. The first element of
+a 250 x 250 x 15 block looks the same as a lone `x[1, 1, 1]`. Guessing
+(read ahead on a miss) fetches chunks nobody wanted when the guess is
+wrong. R knows the whole request. The method is how it says so.

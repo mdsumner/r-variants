@@ -1,0 +1,97 @@
+# The patch {#sec-patch}
+
+One optional ALTREP method:
+
+```c
+/* R_ext/Altrep.h */
+typedef SEXP (*R_altvec_Extract_array_subset_method_t)(SEXP x, SEXP subs,
+                                                       SEXP dim, SEXP call);
+void R_set_altvec_Extract_array_subset_method(R_altrep_class_t cls,
+                         R_altvec_Extract_array_subset_method_t fun);
+#define R_ALTREP_HAS_EXTRACT_ARRAY_SUBSET 1
+```
+
+In `src/main/subset.c`, `MatrixSubset()` and `ArraySubset()` normalize
+the subscripts as they always have. Just before the element loop, if `x`
+is ALTREP, they offer the method what they hold: a list with one vector
+of 1-based positions per dimension (`NA` allowed), and the array's `dim`.
+The method returns the values, or C `NULL` to decline.
+
+## What R keeps
+
+- Normalizing subscripts: negative, logical, character, missing, zero.
+- Bounds checking. The method only sees in-range positions or `NA`.
+- `dim`, `dimnames` and `drop` on the result.
+- Checking what the method returns: type, length, no attributes.
+
+## What does not change
+
+- **Existing classes.** The default method returns `NULL`, so compact
+  sequences, deferred strings, and every package class that
+  does not set the method behave exactly as before.
+- **The ABI.** R allocates each class's method table and packages only
+  call setters, so adding a method moves nothing a compiled package can
+  see.
+- **Package sources.** A package opts in behind
+  `#ifdef R_ALTREP_HAS_EXTRACT_ARRAY_SUBSET` and builds on any R. Every
+  table in this book is that: one altarr source, two builds of R.
+- **Cost for everyone else.** A non-ALTREP array pays one `ALTREP(x)`
+  test. An ALTREP class without the method pays that and a short list.
+
+## Why not reuse `Extract_subset`
+
+R could build the linear index for the block and call the existing
+method. That needs no new API, but it allocates an index as long as the
+result for every ALTREP array, including classes that then decline, and
+the class has to recover the rectangle from the offsets. The new method
+passes the per-dimension subscripts R already has.
+
+## Size and state
+
+Six files, about 100 lines added and 3 removed, with a NEWS entry. It is
+kept applying to current R-devel in this repository
+([`variants/array-subset`](https://github.com/mdsumner/r-variants/tree/main/variants/array-subset)),
+checked weekly. `make check` passes on the patched build. altarr's tests
+and a minimal test package cover declining, misbehaving methods, wrappers,
+dimnames, `NA`, negative, logical and character subscripts, zero extents,
+and `gctorture`.
+
+## Try it
+
+```sh
+docker run --rm -it ghcr.io/mdsumner/r-variants:array-subset
+```
+
+```r
+install.packages("remotes")
+remotes::install_github("hypertidy/altarr@exp/r-hook")
+library(altarr)
+x <- altarr_zarr_v2(altarr_example_zarr())
+y <- x[1:40, 1:20, 1:3]
+altarr_stats(x)[c("array_subset", "elt", "fetch_calls")]   # 1, 0, 1
+```
+
+The `baseline` image is stock R-devel at a nearby revision; the same lines
+there give `array_subset` 0 and thousands of `elt` reads.
+
+## Questions the patch leaves for R core
+
+- A feature macro, as here, or an `R_VERSION` test?
+- May the method return an ALTREP object, a lazy result? The patch
+  neither forbids nor promises it.
+- Would a small test package under `tests/Pkgs` be welcome, since base R
+  has no class that implements the method?
+- Should the dispatch function be exported, so wrapper classes in
+  packages can forward the method as R's own wrapper does?
+
+## What is not in this book yet
+
+- **Sparse stores.** altarr's main branch can skip chunks a store never
+  wrote, from a chunk index. The method lives on the `exp/r-hook` branch,
+  which predates that work; the two need joining before a sparse chapter
+  can compare builds.
+- **GDAL.** `GDAL7::as_altarr()` on a multidimensional array and on a
+  COG's overviews.
+- **A public Icechunk repository** in place of the toy in @sec-icechunk.
+- **Kerchunk JSON and Parquet references**, alongside the VirtualiZarr
+  store in @sec-virtual.
