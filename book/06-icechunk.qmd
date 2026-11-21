@@ -12,16 +12,34 @@ manifest, not by key, and a chunk can be native (stored in the
 repository), inline, or virtual (a byte range of a file somewhere else).
 
 In R, [tabularberg](https://github.com/hypertidy/tabularberg) wraps the
-Icechunk Rust library, and zaro opens a repository as a store:
+Icechunk Rust library, and zaro opens a repository as a store.
+
+## Bluelink, under a seal
+
+The Bluelink ocean reanalysis (BRAN) of @sec-virtual is also published as
+an Icechunk repository on
+[Source Cooperative](https://source.coop/ausantarctic/ausantarctic-scratch/bluelink),
+built with [raad.virtualize](https://github.com/mdsumner/raad.virtualize).
+It is one array per variable from 1993 on, and every chunk is a virtual
+reference into the netCDF files on NCI's THREDDS server. The repository
+(the manifests and the coordinates) is read from Source Cooperative; the
+data comes from NCI.
 
 ```r
-store <- zaro_icechunk("https://.../repo", tag = "v1")
+store <- zaro_icechunk("https://data.source.coop/ausantarctic/ausantarctic-scratch/bluelink/bluelink-daily-temp/icechunk",
+                       authorize = "https://", direct = TRUE)
 store@snapshot                 # the version this store is pinned to
-x <- zaro_array(store, "temperature", cf = TRUE)
+temp <- zaro_array(store, "temp", cf = TRUE)
 ```
 
-From there it is the same lazy array as in every other chapter, and the
-same question: does `x[i, j]` reach it as one request?
+The question to put to it comes from IMOS animal tracking. Elephant seals
+carry CTD tags: each dive is a temperature and salinity profile at one
+place and time, a quarter of a million of them in the Southern Ocean
+since 2004. To compare a dive with the model you want the model's profile
+under it: every depth level at one cell on one day.
+
+That is `temp[i, j, , t]`, and with one level per chunk it is 51 chunks.
+The natural code is a loop over dives.
 
 ```{r}
 #| echo: true
@@ -30,22 +48,28 @@ same question: does `x[i, j]` reach it as one request?
 ```
 
 ```{r}
-res <- book_run("06-icechunk.R")
+res <- book_run("06-icechunk.R", live = TRUE)
 book_table(res)
 ```
+
+On stock R the loop is one request after another, 51 for each dive. With
+the method each dive is one batch. The second row is the workaround a
+careful user can write today: build the index matrix for every level of
+every dive by hand, and R passes it through whole in both builds. It is
+the fastest of the three, and it is also the code nobody writes first.
+The third read, a few days around a dive, has no matrix-subscript
+shortcut that is not more trouble than it is worth.
 
 ```{r}
 book_elt(res)
 ```
 
 ::: {.callout-note}
-This is a placeholder for a real repository. The example is the small one
-tabularberg writes to a temporary directory, so it shows the mechanism
-(pinned snapshot, virtual chunks, one planned request) and not a
-meaningful timing. tabularberg needs a recent Rust toolchain to build, so
-it is only in the book image when the image is built with
-`WITH_ICECHUNK=true` (@sec-rebuild). Without it this chapter has no
-table.
+The dives in this script are made up, on the Kerguelen plateau, until the
+IMOS seal profile store is wired in to supply real ones. tabularberg needs
+a Rust toolchain to build; the book image includes it unless built with
+`WITH_ICECHUNK=false` (@sec-rebuild), and without it this chapter has no
+table. Requests to THREDDS are capped at 4 at a time.
 :::
 
 ## Why the batch matters more here

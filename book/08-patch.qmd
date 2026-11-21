@@ -71,8 +71,8 @@ y <- x[1:40, 1:20, 1:3]
 altarr_stats(x)[c("array_subset", "elt", "fetch_calls")]   # 1, 0, 1
 ```
 
-The `baseline` image is stock R-devel at a nearby revision; the same lines
-there give `array_subset` 0 and thousands of `elt` reads.
+On stock R-devel the same lines give `array_subset` 0 and thousands of
+`elt` reads. The book image has both builds side by side (@sec-rebuild).
 
 ## Questions the patch leaves for R core
 
@@ -92,6 +92,7 @@ there give `array_subset` 0 and thousands of `elt` reads.
   can compare builds.
 - **GDAL.** `GDAL7::as_altarr()` on a multidimensional array and on a
   COG's overviews.
-- **A public Icechunk repository** in place of the toy in @sec-icechunk.
+- **Real seal dives** from the IMOS CTD profile store, in place of the
+  made-up positions in @sec-icechunk.
 - **Kerchunk JSON and Parquet references**, alongside the VirtualiZarr
   store in @sec-virtual.

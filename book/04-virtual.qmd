@@ -52,7 +52,9 @@ given a whole batch, it looks at the byte ranges, and ranges that touch in
 the same file are merged into one request. The 60 tiles of a surface map
 sit end to end in the NetCDF file, so a planned read of the map can be a
 single HTTP request. Asked one chunk at a time, there is nothing to merge:
-60 requests to a THREDDS server, in series.
+60 requests to a THREDDS server, in series. (Reads from THREDDS in this
+book are capped at 4 concurrent requests; the server resets connections
+not far above that.)
 
 So here the **Requests** column can differ between builds, while **MB**
 stays the same. Fewer, larger requests are kinder to an archive server

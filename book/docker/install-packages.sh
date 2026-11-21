@@ -5,7 +5,7 @@ set -euo pipefail
 
 ALTARR_REF="${ALTARR_REF:-exp/r-hook}"
 ZARO_REF="${ZARO_REF:-main}"
-WITH_ICECHUNK="${WITH_ICECHUNK:-false}"
+WITH_ICECHUNK="${WITH_ICECHUNK:-true}"
 
 git clone -q --depth 1 --branch "$ALTARR_REF" https://github.com/hypertidy/altarr.git /tmp/altarr
 git clone -q --depth 1 --branch "$ZARO_REF" https://github.com/hypertidy/zaro.git /tmp/zaro

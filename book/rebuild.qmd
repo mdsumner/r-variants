@@ -66,7 +66,8 @@ Settings, all optional, passed with `sbatch --export=ALL,NAME=value`:
 |---|---|---|
 | `BOOK_MODE` | `live` | `offline` skips the scripts that need the network |
 | `BOOK_PULL` | unset | `1` pulls the image again (after it is rebuilt) |
-| `BOOK_MAX_CON` | `8` | connection cap for the live chapters |
+| `BOOK_MAX_CON` | `8` | connection cap for the Copernicus and EOPF chapters |
+| `BOOK_THREDDS_CON` | `4` | connection cap for reads from NCI THREDDS |
 | `BOOK_LATENCY` | `0.05` | seconds per fetch call in the simulated stores |
 | `BOOK_SIF` | `$MYSCRATCH/altarr-book/book.sif` | where the image is kept |
 | `BOOK_SINGULARITY_MODULE` | `singularity/4.1.0-slurm` | check with `module avail singularity` |

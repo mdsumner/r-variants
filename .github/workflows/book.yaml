@@ -15,9 +15,9 @@ on:
         options: [live, offline]
         default: live
       with_icechunk:
-        description: 'Install Rust and tabularberg (adds a long compile)'
+        description: 'Install Rust and tabularberg (a long compile, cached)'
         type: boolean
-        default: false
+        default: true
       publish:
         description: 'Push the image to ghcr.io as :book if the render succeeds'
         type: boolean
@@ -49,7 +49,7 @@ jobs:
           context: .
           file: book/docker/Dockerfile
           build-args: |
-            WITH_ICECHUNK=${{ inputs.with_icechunk || 'false' }}
+            WITH_ICECHUNK=${{ github.event_name == 'pull_request' || inputs.with_icechunk }}
           tags: ${{ env.IMAGE }}
           load: true
           cache-from: type=gha,scope=book

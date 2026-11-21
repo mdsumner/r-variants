@@ -13,8 +13,8 @@
 #   ALTARR_REF          altarr branch with the method      (exp/r-hook)
 #   ZARO_REF            zaro branch                        (main)
 #   QUARTO_VERSION      Quarto release                     (1.6.42)
-#   WITH_ICECHUNK       true to install Rust and tabularberg (adds a long
-#                       compile; chapter 6 has no table without it)
+#   WITH_ICECHUNK       false to leave out Rust and tabularberg (a long
+#                       compile; chapter 6 has no table without them)
 ARG PATCHED=ghcr.io/mdsumner/r-variants:array-subset
 
 FROM ${PATCHED}
@@ -22,7 +22,7 @@ FROM ${PATCHED}
 ARG ALTARR_REF=exp/r-hook
 ARG ZARO_REF=main
 ARG QUARTO_VERSION=1.6.42
-ARG WITH_ICECHUNK=false
+ARG WITH_ICECHUNK=true
 
 LABEL org.opencontainers.image.source="https://github.com/mdsumner/r-variants"
 LABEL org.opencontainers.image.description="Stock and patched R-devel with altarr, zaro and Quarto (r-variants book)"
@@ -35,7 +35,7 @@ RUN ref="$(sed -n 's/^r_svn_commit: //p' /opt/R/variant/VARIANT.txt)" \
     PREFIX=/opt/R/baseline bash /opt/r-variants/book/build-r.sh
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libssl-dev cmake \
+ && apt-get install -y --no-install-recommends libssl-dev cmake libblosc-dev \
  && curl -fsSL -o /tmp/quarto.deb \
       "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" \
  && apt-get install -y --no-install-recommends /tmp/quarto.deb \

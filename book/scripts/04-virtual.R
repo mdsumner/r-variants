@@ -5,7 +5,7 @@
 # A VirtualiZarr reference store on GitHub says where each chunk's bytes
 # are; zaro reads those byte ranges in place. temp is
 # (xt_ocean 3600, yt_ocean 1500, st_ocean 51, Time 5479), int16, chunks of
-# 300 x 300 x 1 x 1. BOOK_MAX_CON (default 8) caps concurrent connections.
+# 300 x 300 x 1 x 1. THREDDS accepts about 4 concurrent requests: BOOK_THREDDS_CON (default 4).
 here <- function() {
   f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE))
   if (length(f)) dirname(f[1]) else "scripts"
@@ -13,7 +13,7 @@ here <- function() {
 source(file.path(here(), "_bench.R"))
 suppressPackageStartupMessages(library(zaro))
 options(zaro.verbose = FALSE,
-        zaro.max_con = as.integer(Sys.getenv("BOOK_MAX_CON", "8")))
+        zaro.max_con = as.integer(Sys.getenv("BOOK_THREDDS_CON", "4")))
 count_http()
 
 bran <- zaro(paste0("virtualizarr://https://raw.githubusercontent.com/mdsumner/",
