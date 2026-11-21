@@ -35,11 +35,17 @@ RUN ref="$(sed -n 's/^r_svn_commit: //p' /opt/R/variant/VARIANT.txt)" \
     PREFIX=/opt/R/baseline bash /opt/r-variants/book/build-r.sh
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libssl-dev cmake libblosc-dev \
+ && apt-get install -y --no-install-recommends libssl-dev cmake libblosc-dev libuv1-dev \
  && curl -fsSL -o /tmp/quarto.deb \
       "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" \
  && apt-get install -y --no-install-recommends /tmp/quarto.deb \
  && rm -rf /tmp/quarto.deb /var/lib/apt/lists/*
+
+# Quarto renders with the patched build.
+RUN /opt/R/variant/bin/Rscript -e ' \
+      install.packages(c("knitr", "rmarkdown"), Ncpus = parallel::detectCores()); \
+      stopifnot(requireNamespace("knitr", quietly = TRUE), \
+                requireNamespace("rmarkdown", quietly = TRUE))'
 
 COPY book/docker/install-packages.sh /opt/r-variants/install-packages.sh
 RUN ALTARR_REF="${ALTARR_REF}" ZARO_REF="${ZARO_REF}" WITH_ICECHUNK="${WITH_ICECHUNK}" \

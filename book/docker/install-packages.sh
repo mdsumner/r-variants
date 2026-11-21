@@ -32,12 +32,6 @@ for home in /opt/R/baseline /opt/R/variant; do
   fi
 done
 
-# Quarto renders with the patched build.
-/opt/R/variant/bin/Rscript -e '
-  install.packages(c("knitr", "rmarkdown"), Ncpus = parallel::detectCores())
-  stopifnot(requireNamespace("knitr", quietly = TRUE),
-            requireNamespace("rmarkdown", quietly = TRUE))'
-
 /opt/R/baseline/bin/Rscript -e 'stopifnot(!altarr:::has_array_subset())'
 /opt/R/variant/bin/Rscript -e 'stopifnot(altarr:::has_array_subset())'
 
