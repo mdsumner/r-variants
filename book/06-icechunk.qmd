@@ -14,32 +14,43 @@ repository), inline, or virtual (a byte range of a file somewhere else).
 In R, [tabularberg](https://github.com/hypertidy/tabularberg) wraps the
 Icechunk Rust library, and zaro opens a repository as a store.
 
-## Bluelink, under a seal
+## A seal, and the ocean model under it
 
-The Bluelink ocean reanalysis (BRAN) of @sec-virtual is also published as
-an Icechunk repository on
-[Source Cooperative](https://source.coop/ausantarctic/ausantarctic-scratch/bluelink),
-built with [raad.virtualize](https://github.com/mdsumner/raad.virtualize).
-It is one array per variable from 1993 on, and every chunk is a virtual
-reference into the netCDF files on NCI's THREDDS server. The repository
-(the manifests and the coordinates) is read from Source Cooperative; the
-data comes from NCI.
+Two Icechunk repositories on
+[Source Cooperative](https://source.coop/ausantarctic/ausantarctic-scratch),
+both built with
+[raad.virtualize](https://github.com/mdsumner/raad.virtualize), and both
+entirely virtual: neither holds a copy of the data.
+
+- **IMOS seal CTD profiles**
+  ([`imos-tracking/meop-ctd-2024`](https://source.coop/ausantarctic/ausantarctic-scratch/imos-tracking)).
+  Elephant seals, Weddell seals and fur seals carry satellite-relay CTD
+  tags, and each dive is a temperature and salinity profile at one place
+  and time. The 2024 release is 126,518 profiles of 1000 levels, in 265
+  classic netCDF files in the IMOS public bucket. The repository presents
+  them as one cube, each profile a chunk: 4000 bytes of one of those
+  files.
+- **Bluelink (BRAN) temperature**
+  ([`bluelink/bluelink-daily-temp`](https://source.coop/ausantarctic/ausantarctic-scratch/bluelink)).
+  The reanalysis of @sec-virtual, daily from 1993, every chunk a byte
+  range of a netCDF file on NCI's THREDDS server.
 
 ```r
-store <- zaro_icechunk("https://data.source.coop/ausantarctic/ausantarctic-scratch/bluelink/bluelink-daily-temp/icechunk",
-                       authorize = "https://", direct = TRUE)
-store@snapshot                 # the version this store is pinned to
-temp <- zaro_array(store, "temp", cf = TRUE)
+coop <- "https://data.source.coop/ausantarctic/ausantarctic-scratch/"
+meop <- zaro_icechunk(paste0(coop, "imos-tracking/meop-ctd-2024/icechunk"),
+                      authorize = "https://", direct = TRUE)
+meop@snapshot                  # the version this store is pinned to
+obs  <- zaro_array(meop, "TEMP_ADJUSTED", cf = TRUE)   # level, profile
+bran <- zaro_icechunk(paste0(coop, "bluelink/bluelink-daily-temp/icechunk"),
+                      authorize = "https://", direct = TRUE)
+temp <- zaro_array(bran, "temp", cf = TRUE)            # x, y, depth, day
 ```
 
-The question to put to it comes from IMOS animal tracking. Elephant seals
-carry CTD tags: each dive is a temperature and salinity profile at one
-place and time, a quarter of a million of them in the Southern Ocean
-since 2004. To compare a dive with the model you want the model's profile
-under it: every depth level at one cell on one day.
-
-That is `temp[i, j, , t]`, and with one level per chunk it is 51 chunks.
-The natural code is a loop over dives.
+The job: take five dives of one seal on the Kerguelen plateau in 2019,
+and for each get what the seal measured and what the model has at that
+cell on that day. In R that is two lines. What the seal measured is a
+block of a matrix, `obs[, dives]`. What the model has is a profile,
+`temp[i, j, , t]`, for each dive: 51 chunks, one per depth level.
 
 ```{r}
 #| echo: true
@@ -52,24 +63,50 @@ res <- book_run("06-icechunk.R", live = TRUE)
 book_table(res)
 ```
 
-On stock R the loop is one request after another, 51 for each dive. With
-the method each dive is one batch. The second row is the workaround a
-careful user can write today: build the index matrix for every level of
-every dive by hand, and R passes it through whole in both builds. It is
-the fastest of the three, and it is also the code nobody writes first.
-The third read, a few days around a dive, has no matrix-subscript
-shortcut that is not more trouble than it is worth.
+Three hosts are involved in these reads: Source Cooperative for the
+manifests, the IMOS bucket in Sydney for the seal profiles, NCI in
+Canberra for the model. On stock R every chunk from either archive is its
+own round trip, in series. With the method, each `[` is one batch.
+
+The third row is the workaround a careful user can write today: build
+the index matrix for every level of every dive by hand, and R passes it
+through whole in both builds. It is the fastest of the three, and it is
+the code nobody writes first.
 
 ```{r}
 book_elt(res)
 ```
 
+```{r}
+#| fig-width: 9
+#| fig-height: 3.6
+#| fig-cap: "Temperature profiles from five dives of one seal (line), and the BRAN temperature at the same cell and day (points)."
+f <- "results/06-dives.csv"
+if (file.exists(f)) {
+  d <- utils::read.csv(f, stringsAsFactors = FALSE)
+  n <- max(d$dive)
+  op <- par(mfrow = c(1, n), mar = c(4, 3, 2.5, 0.5), mgp = c(1.8, 0.6, 0))
+  for (v in seq_len(n)) {
+    s <- d[d$dive == v & d$source == "seal", ]
+    m <- d[d$dive == v & d$source == "model", ]
+    zmax <- max(s$depth, 100)
+    m <- m[m$depth <= zmax * 1.1, ]
+    plot(s$temp, s$depth, type = "l", col = "steelblue", lwd = 2,
+         ylim = c(zmax, 0), xlim = range(c(s$temp, m$temp)),
+         xlab = "deg C", ylab = if (v == 1) "depth (m, dbar)" else "",
+         main = d$label[d$dive == v][1], cex.main = 0.85)
+    points(m$temp, m$depth, pch = 19, cex = 0.7, col = "firebrick")
+  }
+  par(op)
+}
+```
+
 ::: {.callout-note}
-The dives in this script are made up, on the Kerguelen plateau, until the
-IMOS seal profile store is wired in to supply real ones. tabularberg needs
-a Rust toolchain to build; the book image includes it unless built with
-`WITH_ICECHUNK=false` (@sec-rebuild), and without it this chapter has no
-table. Requests to THREDDS are capped at 4 at a time.
+tabularberg needs a Rust toolchain to build; the book image includes it
+unless built with `WITH_ICECHUNK=false` (@sec-rebuild), and without it
+this chapter has no table. Requests to THREDDS are capped at 4 at a time.
+The Source Cooperative location is a scratch area: datasets are added
+there over time.
 :::
 
 ## Why the batch matters more here
