@@ -36,11 +36,15 @@ book_run <- function(script, live = FALSE) {
   if (!length(builds)) return(earlier("no R build found, see BOOK_R_STOCK and BOOK_R_PATCHED"))
   parts <- list()
   for (b in names(builds)) {
+    # a breath between builds, so the second does not meet a server the
+    # first has just worked hard
+    if (live && length(parts)) Sys.sleep(as.numeric(Sys.getenv("BOOK_PAUSE", "20")))
     out <- tempfile(fileext = ".csv")
     log <- file.path("results", sprintf("%s.%s.log", name, b))
     status <- suppressWarnings(system2(
       builds[[b]], shQuote(file.path("scripts", script)),
-      stdout = log, stderr = log, env = paste0("BOOK_OUT=", shQuote(out)),
+      stdout = log, stderr = log,
+      env = c(paste0("BOOK_OUT=", shQuote(out)), "R_HOME="),
       timeout = as.numeric(Sys.getenv("BOOK_TIMEOUT", "1800"))))
     if (identical(as.integer(status), 0L) && file.exists(out)) {
       r <- utils::read.csv(out, stringsAsFactors = FALSE)

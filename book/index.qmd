@@ -54,7 +54,9 @@ The columns:
   anywhere along the way counts against the patch, not for it.
 - **Same values**: the two builds returned the same numbers.
 
-Timings from a live store are one run on one day; read them as ratios, not
+A read that fails, usually a server dropping a connection, is retried
+after a pause, and the time shown is the attempt that succeeded. Timings
+from a live store are one run on one day; read them as ratios, not
 benchmarks. Where a table's caption says "Earlier run", this render did not
 reach that store and the last saved result is shown instead.
 

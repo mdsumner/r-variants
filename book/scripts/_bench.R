@@ -42,11 +42,27 @@ count_http <- function() {
   invisible(ok)
 }
 
+# A read that fails (a server resetting a connection) is tried again, up
+# to BOOK_TRIES times, after a pause; the time recorded is the attempt that
+# succeeded, and `attempts` says how many it took.
 bench <- function(case, x, expr) {
-  altarr_reset(x)
-  .book$requests <- 0
-  .book$bytes <- 0
-  secs <- system.time(v <- expr)[["elapsed"]]
+  call <- substitute(expr)
+  env <- parent.frame()
+  tries <- as.integer(Sys.getenv("BOOK_TRIES", "3"))
+  for (attempt in seq_len(tries)) {
+    altarr_reset(x)
+    .book$requests <- 0
+    .book$bytes <- 0
+    secs <- NA_real_
+    v <- tryCatch({
+      secs <- system.time(val <- eval(call, env))[["elapsed"]]
+      val
+    }, error = function(e) e)
+    if (!inherits(v, "error")) break
+    cat(sprintf("%s: attempt %d failed: %s\n", case, attempt, conditionMessage(v)))
+    if (attempt == tries) stop(v)
+    Sys.sleep(as.numeric(Sys.getenv("BOOK_RETRY_WAIT", "30")))
+  }
   s <- altarr_stats(x)
   g <- function(n) if (n %in% names(s)) as.numeric(s[[n]]) else NA_real_
   row <- data.frame(
@@ -55,7 +71,7 @@ bench <- function(case, x, expr) {
     elt = g("elt"), array_subset = g("array_subset"),
     requests = if (.book$counting) .book$requests else NA_real_,
     mb = if (.book$counting) .book$bytes / 1e6 else NA_real_,
-    n = length(v), check = sprintf("%.10g", sum(as.numeric(v), na.rm = TRUE)),
+    attempts = attempt, n = length(v), check = sprintf("%.10g", sum(as.numeric(v), na.rm = TRUE)),
     stringsAsFactors = FALSE)
   .book$rows[[length(.book$rows) + 1L]] <- row
   cat(sprintf("%-58s %8.2f s  fetch calls %5.0f  chunks %5.0f  elt %10.0f%s\n",

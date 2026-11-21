@@ -1,5 +1,5 @@
 # 06-icechunk.R -- seal dives and the ocean model under them, both from
-# Icechunk repositories on Source Cooperative. ASCII only.
+# virtual stores on Source Cooperative. ASCII only.
 #
 # meop-ctd-2024: IMOS seal CTD profiles (MEOP quality control), one cube of
 #   126,518 profiles by 1000 levels (1 dbar). Each profile is one virtual
@@ -7,7 +7,8 @@
 # bluelink-daily-temp: BRAN temperature, daily from 1993, (xt_ocean,
 #   yt_ocean, st_ocean 51, Time) in chunks of 300 x 300 x 1 x 1. Virtual
 #   chunks: byte ranges of netCDF files on NCI's THREDDS server, so a model
-#   profile under one dive is 51 chunks.
+#   profile under one dive is 51 chunks. Read here through the flat
+#   Parquet form of the same references (see the chapter for why).
 #
 # THREDDS accepts about 4 concurrent requests: BOOK_THREDDS_CON (default 4).
 here <- function() {
@@ -25,14 +26,12 @@ if (!requireNamespace("tabularberg", quietly = TRUE)) {
 count_http()
 
 coop <- "https://data.source.coop/ausantarctic/ausantarctic-scratch/"
-open_repo <- function(path) {
-  s <- zaro_icechunk(paste0(coop, path), authorize = "https://", direct = TRUE)
-  cat(path, "snapshot", s@snapshot, "\n")
-  zaro_dataset(s)
-}
 
-## the seals
-meop <- open_repo("imos-tracking/meop-ctd-2024/icechunk")
+## the seals: an Icechunk repository, pinned to the snapshot it opens at
+ice <- zaro_icechunk(paste0(coop, "imos-tracking/meop-ctd-2024/icechunk"),
+                     authorize = "https://", direct = TRUE)
+cat("meop-ctd-2024 snapshot:", ice@snapshot, "\n")
+meop <- zaro_dataset(ice)
 obs_t <- zaro_array(meop, "TEMP_ADJUSTED", cf = TRUE)   # N_LEVELS, N_PROF
 obs_p <- zaro_array(meop, "PRES_ADJUSTED", cf = TRUE)
 cat("TEMP_ADJUSTED:", paste(dim(obs_t), collapse = " x "), "\n")
@@ -51,7 +50,8 @@ dives <- data.frame(profile = sel, lon = plon[sel], lat = plat[sel],
 print(dives)
 
 ## the model
-bran <- open_repo("bluelink/bluelink-daily-temp/icechunk")
+bran <- zaro_dataset(zaro(paste0("flatrefs://", coop,
+                                "bluelink/bluelink-daily-temp/flat")))
 temp <- zaro_array(bran, "temp", cf = TRUE)              # degrees C, land as NA
 cat("temp:", paste(dim(temp), collapse = " x "), "\n")
 xt <- as.vector(zaro_read(bran, "xt_ocean"))
