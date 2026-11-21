@@ -4,21 +4,18 @@
 #   docker build -f book/docker/Dockerfile -t r-variants-book .
 #   docker run --rm -v "$PWD:/work" -w /work/book r-variants-book bash run.sh
 #
-# Both builds of R come from the published variant images. Each was
-# installed to /opt/R/variant, so the stock one is moved to
-# /opt/R/baseline and the paths recorded in its text files are rewritten.
+# Patched R comes from the published array-subset image. Stock R is built
+# here, from the same r-devel/r-svn commit that image records, so the two
+# differ by the patch and nothing else.
 #
 # Build args:
-#   BASELINE, PATCHED   the two variant images
+#   PATCHED             the array-subset image
 #   ALTARR_REF          altarr branch with the method      (exp/r-hook)
 #   ZARO_REF            zaro branch                        (main)
 #   QUARTO_VERSION      Quarto release                     (1.6.42)
 #   WITH_ICECHUNK       true to install Rust and tabularberg (adds a long
 #                       compile; chapter 6 has no table without it)
-ARG BASELINE=ghcr.io/mdsumner/r-variants:baseline
 ARG PATCHED=ghcr.io/mdsumner/r-variants:array-subset
-
-FROM ${BASELINE} AS baseline
 
 FROM ${PATCHED}
 
@@ -30,11 +27,12 @@ ARG WITH_ICECHUNK=false
 LABEL org.opencontainers.image.source="https://github.com/mdsumner/r-variants"
 LABEL org.opencontainers.image.description="Stock and patched R-devel with altarr, zaro and Quarto (r-variants book)"
 
-COPY --from=baseline /opt/R/variant /opt/R/baseline
-RUN grep -rIl '/opt/R/variant' /opt/R/baseline \
-      | xargs -r sed -i 's#/opt/R/variant#/opt/R/baseline#g' \
- && test "$(/opt/R/baseline/bin/Rscript -e 'cat(R.home())')" = "/opt/R/baseline/lib/R" \
- && test "$(/opt/R/variant/bin/Rscript -e 'cat(R.home())')" = "/opt/R/variant/lib/R"
+COPY scripts/build-r.sh /opt/r-variants/book/build-r.sh
+COPY variants/baseline/ /opt/r-variants/book/baseline/
+RUN ref="$(sed -n 's/^r_svn_commit: //p' /opt/R/variant/VARIANT.txt)" \
+ && test -n "$ref" \
+ && VARIANT_DIR=/opt/r-variants/book/baseline R_SVN_REF="$ref" \
+    PREFIX=/opt/R/baseline bash /opt/r-variants/book/build-r.sh
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libssl-dev cmake \

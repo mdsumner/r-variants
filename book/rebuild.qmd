@@ -18,16 +18,18 @@ both builds of R and writes the tables. Nothing is cached between renders.
 
 ## The image
 
-`ghcr.io/mdsumner/r-variants:book` is built from the two published
-variant images. It holds stock R-devel in `/opt/R/baseline`, patched
-R-devel in `/opt/R/variant`, the same altarr (`exp/r-hook`) and zaro
-installed into each, and Quarto. The **book** workflow in the repository
-builds it, renders the book in it as a test, and publishes it when asked
+`ghcr.io/mdsumner/r-variants:book` starts from the published
+`array-subset` image, which has patched R-devel in `/opt/R/variant`. It
+adds stock R-devel in `/opt/R/baseline`, built from the same R-devel
+commit the patched image records, so the two builds differ by the patch
+and nothing else. The same altarr (`exp/r-hook`) and zaro are installed
+into each, and Quarto. The **book** workflow in the repository builds the
+image, renders the book in it as a test, and publishes it when asked
 (Actions, **book**, **Run workflow**, `publish`).
 
-The two variant images are built on demand and can be at different
-R-devel revisions. The preface prints both; rebuild both variants at the
-same `r_ref` first if that matters.
+To move the book to a newer R-devel, rebuild and publish the
+`array-subset` variant first, then the book image. The preface prints
+what each build is.
 
 ## On Pawsey (Setonix)
 
