@@ -29,6 +29,15 @@ Runnable examples that use the images:
 | --- | --- |
 | [`examples/xyt-points`](examples/xyt-points) | Values at (x, y, t) points from a chunked array (synthetic, and the CMEMS global waves Zarr) with altarr and zaro: one planned batch of distinct chunks; optional chunk decode on a mizu pool |
 
+## The book
+
+[`book/`](book) is a short Quarto book of worked examples for the
+`array-subset` variant: reads from synthetic, native and virtual Zarr
+stores, each run under stock and patched R-devel in one container, with
+the fetch calls, requests and seconds side by side. It renders in the
+`book` image, on Pawsey with `sbatch book/pawsey/render.slurm` or anywhere
+with Docker; see [`book/README.md`](book/README.md).
+
 ## How this relates to what already exists
 
 - **[r-devel/r-svn](https://github.com/r-devel/r-svn)** builds and checks

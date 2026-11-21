@@ -1,0 +1,132 @@
+# Icechunk: a versioned store {#sec-icechunk}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+[Icechunk](https://icechunk.io) puts a transaction log in front of Zarr:
+snapshots, branches and tags, so a reader can pin a version and keep
+reading it while writers move on. Chunks are found through the snapshot's
+manifest, not by key, and a chunk can be native (stored in the
+repository), inline, or virtual (a byte range of a file somewhere else).
+
+In R, [tabularberg](https://github.com/hypertidy/tabularberg) wraps the
+Icechunk Rust library, and zaro opens a repository as a store.
+
+## A seal, and the ocean model under it
+
+Two virtual stores on
+[Source Cooperative](https://source.coop/ausantarctic/ausantarctic-scratch),
+both built with
+[raad.virtualize](https://github.com/mdsumner/raad.virtualize) and
+published as Icechunk repositories among other forms. Neither holds a
+copy of the data.
+
+- **IMOS seal CTD profiles**
+  ([`imos-tracking/meop-ctd-2024`](https://source.coop/ausantarctic/ausantarctic-scratch/imos-tracking)).
+  Elephant seals, Weddell seals and fur seals carry satellite-relay CTD
+  tags, and each dive is a temperature and salinity profile at one place
+  and time. The 2024 release is 126,518 profiles of 1000 levels, in 265
+  classic netCDF files in the IMOS public bucket. The repository presents
+  them as one cube, each profile a chunk: 4000 bytes of one of those
+  files.
+- **Bluelink (BRAN) temperature**
+  ([`bluelink/bluelink-daily-temp`](https://source.coop/ausantarctic/ausantarctic-scratch/bluelink)).
+  The reanalysis of @sec-virtual, daily from 1993, every chunk a byte
+  range of a netCDF file on NCI's THREDDS server.
+
+```r
+coop <- "https://data.source.coop/ausantarctic/ausantarctic-scratch/"
+meop <- zaro_icechunk(paste0(coop, "imos-tracking/meop-ctd-2024/icechunk"),
+                      authorize = "https://", direct = TRUE)
+meop@snapshot                  # the version this store is pinned to
+obs  <- zaro_array(meop, "TEMP_ADJUSTED", cf = TRUE)   # level, profile
+bran <- zaro(paste0("flatrefs://", coop, "bluelink/bluelink-daily-temp/flat"),
+             target = "public")
+temp <- zaro_array(bran, "temp", cf = TRUE)            # x, y, depth, day
+```
+
+::: {.callout-important}
+The model is not read through Icechunk here yet. zaro's Icechunk store
+loads the whole reference table of an array before it looks up a chunk.
+For the seal cube that is 126,518 rows. For Bluelink temperature it is
+37.5 million, and the first render of this chapter ran out of memory
+there, in both builds. Each Bluelink dataset is published in several
+forms from the same references, so this chapter reads the flat Parquet
+form, which zaro reads one row group at a time. The Icechunk read needs
+zaro to ask for only the manifest rows a request covers.
+:::
+
+The job: take five dives of one seal on the Kerguelen plateau in 2019,
+and for each get what the seal measured and what the model has at that
+cell on that day. In R that is two lines. What the seal measured is a
+block of a matrix, `obs[, dives]`. What the model has is a profile,
+`temp[i, j, , t]`, for each dive: 51 chunks, one per depth level.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/06-icechunk.R
+```
+
+```{r}
+res <- book_run("06-icechunk.R", live = TRUE)
+book_table(res)
+```
+
+Three hosts are involved in these reads: Source Cooperative for the
+references, the IMOS bucket in Sydney for the seal profiles, NCI in
+Canberra for the model. On stock R every chunk from either archive is its
+own round trip, in series. With the method, each `[` is one batch.
+
+The third row is the workaround a careful user can write today: build
+the index matrix for every level of every dive by hand, and R passes it
+through whole in both builds. It is the fastest of the three, and it is
+the code nobody writes first.
+
+```{r}
+book_elt(res)
+```
+
+```{r}
+#| fig-width: 9
+#| fig-height: 3.6
+#| fig-cap: "Temperature profiles from five dives of one seal (line), and the BRAN temperature at the same cell and day (points)."
+f <- "results/06-dives.csv"
+if (file.exists(f)) {
+  d <- utils::read.csv(f, stringsAsFactors = FALSE)
+  n <- max(d$dive)
+  op <- par(mfrow = c(1, n), mar = c(4, 3, 2.5, 0.5), mgp = c(1.8, 0.6, 0))
+  for (v in seq_len(n)) {
+    s <- d[d$dive == v & d$source == "seal", ]
+    m <- d[d$dive == v & d$source == "model", ]
+    zmax <- max(s$depth, 100)
+    m <- m[m$depth <= zmax * 1.1, ]
+    plot(s$temp, s$depth, type = "l", col = "steelblue", lwd = 2,
+         ylim = c(zmax, 0), xlim = range(c(s$temp, m$temp)),
+         xlab = "deg C", ylab = if (v == 1) "depth (m, dbar)" else "",
+         main = d$label[d$dive == v][1], cex.main = 0.85)
+    points(m$temp, m$depth, pch = 19, cex = 0.7, col = "firebrick")
+  }
+  par(op)
+}
+```
+
+::: {.callout-note}
+tabularberg needs a Rust toolchain to build; the book image includes it
+unless built with `WITH_ICECHUNK=false` (@sec-rebuild), and without it
+this chapter has no table. Requests to THREDDS are capped at 4 at a time.
+The Source Cooperative location is a scratch area: datasets are added
+there over time.
+:::
+
+## Why the batch matters more here
+
+With a plain Zarr store a chunk's address is its key. With Icechunk each
+chunk is looked up in a manifest, and a virtual chunk then points at
+another host. A reader given the whole request resolves all the
+references in one pass over the manifest and can group the fetches by
+host. A reader given one element at a time does that lookup once per
+chunk. The deeper the indirection, the more a store gains from being
+asked once.

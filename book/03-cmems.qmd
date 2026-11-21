@@ -1,0 +1,78 @@
+# A cloud-native store: Copernicus Marine {#sec-cmems}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+Copernicus Marine publishes its gridded products as Zarr V2 on public
+object storage, and publishes each one twice. The *timeChunked* copy has
+chunks shaped like maps: one day of global sea level is nine chunks of
+1024 x 512 cells. The *geoChunked* copy has chunks shaped like time
+series: 33 years at one cell is six chunks of 16 x 8 cells by 2264 days.
+The publisher has already done the work of making both kinds of read
+cheap.
+
+With [zaro](https://hypertidy.github.io/zaro/), either copy opens as a
+lazy R array, unpacked to metres with missing values as `NA`:
+
+```r
+ds  <- zaro_dataset(zaro("https://s3.waw3-1.cloudferro.com/.../timeChunked.zarr"))
+sla <- zaro_array(ds, "sla", cf = TRUE)
+dim(sla)
+#> [1]  2880  1440 12188
+map <- sla[, , 12188]          # the latest day
+```
+
+That last line is the natural thing to write, and it is the read the
+store was chunked for. On stock R it is 4.1 million element calls and
+nine separate requests, one after another. The same goes for the series
+`sla[i, j, ]` on the other copy.
+
+## The reads
+
+Five reads: a global map, a regional block of two weeks, and a full
+series at one cell from the sea level product; then, from the global
+waves product (3-hourly since 1980, chunks of 4 x 8 cells by 17,720
+steps), 46 years at one cell and a year in a small box.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/03-cmems.R
+```
+
+```{r}
+res <- book_run("03-cmems.R", live = TRUE)
+book_table(res)
+```
+
+What to look for:
+
+- **Requests** are equal in the two builds, or close to it, and so are
+  the megabytes. Nobody is reading more or less data.
+- **Fetch calls** drop to one. That one call carries every chunk, and
+  zaro sends them through a single pool of 8 connections.
+- The gain grows with the number of chunks in the read, up to the
+  connection cap. Nine chunks cannot be more than nine times faster.
+  The regional block, with a few dozen chunks, is where the batch earns
+  the most.
+- Decoding still happens in R, chunk by chunk, in both builds. That part
+  of the time does not move.
+
+```{r}
+book_elt(res)
+```
+
+## The layout is the publisher's; the plan should be R's
+
+The two copies exist because no single chunk shape serves maps and series
+both. Choosing the copy is the user's one decision. After that, which
+chunks to fetch and how to fetch them together is arithmetic on the
+subscripts, and R has the subscripts. On stock R that arithmetic is
+thrown away at the last step.
+
+The connection cap matters as much as the plan once the plan exists.
+Against this endpoint, 16 connections were about 1.5 times faster than 8
+for a 268-chunk read, and 32 about 2 times (measured 2026-11-16). Set
+`BOOK_MAX_CON` to try it; the default stays at a polite 8.

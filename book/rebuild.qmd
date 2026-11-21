@@ -1,0 +1,114 @@
+# Running the book {#sec-rebuild}
+
+Everything is in
+[`book/`](https://github.com/mdsumner/r-variants/tree/main/book) of
+mdsumner/r-variants. A render runs each script in `book/scripts` under
+both builds of R and writes the tables. Nothing is cached between renders.
+
+| Path | What it is |
+|---|---|
+| `scripts/NN-name.R` | one example each; runnable alone with `Rscript` |
+| `scripts/_bench.R` | the measuring helper the scripts share |
+| `R/book.R` | runs a script under each build and makes the tables |
+| `results/*.csv` | the rows from the last successful run of each script |
+| `results/*.log` | each script's output per build (not committed) |
+| `docker/Dockerfile` | the book image |
+| `run.sh` | the render command |
+| `pawsey/render.slurm` | the same, as a Slurm job for Setonix |
+
+## The image
+
+`ghcr.io/mdsumner/r-variants:book` starts from the published
+`array-subset` image, which has patched R-devel in `/opt/R/variant`. It
+adds stock R-devel in `/opt/R/baseline`, built from the same R-devel
+commit the patched image records, so the two builds differ by the patch
+and nothing else. The same altarr (`exp/r-hook`) and zaro are installed
+into each, and Quarto. The **book** workflow in the repository builds the
+image, renders the book in it as a test, and publishes it when asked
+(Actions, **book**, **Run workflow**, `publish`).
+
+To move the book to a newer R-devel, rebuild and publish the
+`array-subset` variant first, then the book image. The preface prints
+what each build is.
+
+## On Pawsey (Setonix)
+
+Compute nodes on Setonix can reach the internet, which is why the book
+runs there: the live chapters read from Copernicus, NCI and GitHub during
+the job.
+
+Once:
+
+```sh
+cd $MYSCRATCH
+git clone https://github.com/mdsumner/r-variants
+```
+
+Each run, from the top of the clone:
+
+```sh
+git pull
+sbatch --account=$PAWSEY_PROJECT book/pawsey/render.slurm
+```
+
+The job pulls the image to `$MYSCRATCH/altarr-book/book.sif` the first
+time, renders, and leaves the book in `book/_book/` and the result rows
+in `book/results/`. Its log is `altarr-book-<jobid>.log` where you
+submitted. To keep a run, commit the result rows:
+
+```sh
+git add book/results/*.csv && git commit -m "Book results, Setonix, $(date +%F)"
+```
+
+Settings, all optional, passed with `sbatch --export=ALL,NAME=value`:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BOOK_MODE` | `live` | `offline` skips the scripts that need the network |
+| `BOOK_PULL` | unset | `1` pulls the image again (after it is rebuilt) |
+| `BOOK_MAX_CON` | `8` | connection cap for the Copernicus and EOPF chapters |
+| `BOOK_THREDDS_CON` | `4` | connection cap for reads from NCI THREDDS |
+| `BOOK_TRIES`, `BOOK_RETRY_WAIT` | `3`, `60` | attempts at a read that fails, and seconds between them |
+| `BOOK_PAUSE` | `60` | seconds between the two builds on a live script |
+| `BOOK_LATENCY` | `0.05` | seconds per fetch call in the simulated stores |
+| `BOOK_SIF` | `$MYSCRATCH/altarr-book/book.sif` | where the image is kept |
+| `BOOK_SINGULARITY_MODULE` | `singularity/4.1.0-slurm` | check with `module avail singularity` |
+
+To render one chapter, pass it after the mode:
+
+```sh
+sbatch --account=$PAWSEY_PROJECT book/pawsey/render.slurm live 04-virtual.qmd
+```
+
+## Anywhere with Docker
+
+On a laptop, a Nimbus instance or any machine with Docker, from the top
+of a clone:
+
+```sh
+docker run --rm -v "$PWD:/work" -w /work/book \
+  ghcr.io/mdsumner/r-variants:book bash run.sh            # live
+docker run --rm -v "$PWD:/work" -w /work/book \
+  ghcr.io/mdsumner/r-variants:book bash run.sh offline    # no network
+```
+
+## One script, by hand
+
+Inside the image, from `book/`:
+
+```sh
+/opt/R/baseline/bin/Rscript scripts/04-virtual.R     # stock R-devel
+/opt/R/variant/bin/Rscript  scripts/04-virtual.R     # patched
+```
+
+Outside the image the scripts run with any R that has altarr and zaro;
+point `BOOK_R_STOCK` and `BOOK_R_PATCHED` at two `Rscript` binaries to
+render the book against other builds.
+
+## Adding an example
+
+1. Write `scripts/NN-name.R`: source `_bench.R`, open a lazy array, wrap
+   each read in `bench("label", x, expr)`, end with `finish()`.
+2. In a chapter, show it with a `file:` chunk and run it with
+   `book_run("NN-name.R", live = TRUE)` then `book_table(res)`.
+3. Keep files ASCII.

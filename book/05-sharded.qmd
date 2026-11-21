@@ -1,0 +1,49 @@
+# Sharded Zarr V3: Sentinel-2 {#sec-sharded}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+Zarr V3 added sharding: many small chunks packed into one object, with an
+index at one end saying where each chunk's bytes are. Small chunks make
+small reads possible; shards keep the object count sane. ESA's EOPF
+sample service publishes Sentinel-2 Level-2A products this way, each band
+a matrix at 10, 20, 60 m and coarser.
+
+To a reader, a shard is one more level of byte references: a ranged read
+of the index, then each chunk is a byte range of the shard file. That is
+the same shape as a virtual store, and zaro plans it the same way.
+
+This chapter is here for a second reason. A band is a matrix, and
+`m[i, j]` takes a different path through R than `x[i, j, k]`:
+`MatrixSubset()`, not `ArraySubset()`. R's source calls the split
+"purely an optimization", but it means the element loop exists twice, and
+the patch offers the method from both places. These reads exercise the
+matrix one.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/05-sharded.R
+```
+
+```{r}
+res <- book_run("05-sharded.R", live = TRUE)
+book_table(res)
+```
+
+The third read is a strided one: every tenth pixel of a 4000 x 4000
+window, a quick-look. On a lazy array that is still every chunk under the
+window, because a compressed chunk is all or nothing. What the plan saves
+is, again, the round trips.
+
+```{r}
+book_elt(res)
+```
+
+::: {.callout-note}
+The product URL is under a `tests-output` path on the sample service and
+may move. If this chapter shows no results, the script needs a current
+product; any Sentinel-2 L2A Zarr from the service will do.
+:::

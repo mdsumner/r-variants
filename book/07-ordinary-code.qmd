@@ -1,0 +1,82 @@
+# Code that was not written for lazy arrays {#sec-ordinary}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+The examples so far could all be rescued today by calling
+`altarr_extract()` in place of `[`. This chapter is about why that is
+not an answer.
+
+The promise of a classless ALTREP array is that it *is* an array. Nobody
+has to write methods for it and nobody has to know it is lazy. Thirty
+years of R code takes arrays and indexes them with `[`. Every one of
+those functions works on a lazy array on stock R, correctly, and reads
+its data one element at a time. A special extract function helps only the
+code that calls it.
+
+With the method in R, the planning happens underneath `[`, so it happens
+for all of them.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/07-ordinary.R
+```
+
+```{r}
+res <- book_run("07-ordinary.R")
+book_table(res)
+```
+
+Read by read:
+
+- **Negative, logical and character subscripts.** R resolves all of them
+  to positions before the method is called, with its own rules for
+  recycling, name matching and `NA`. A lazy array class gets R's full
+  indexing language without implementing any of it, and cannot get it
+  subtly wrong.
+- **`apply()` over a block.** The function takes an array and indexes it.
+  It has never heard of altarr.
+- **A loop over time steps.** Each step is one planned read, and steps
+  that fall in chunks already read cost nothing, so the loop makes one
+  fetch call per layer of chunks it enters.
+- **After `dimnames<-` on a copy.** R does not copy the data; it wraps
+  the object in its own ALTREP wrapper class. The patch makes the wrapper
+  forward the method, so a renamed array is still planned.
+
+```{r}
+book_elt(res)
+```
+
+## Where this reaches
+
+The same thing holds further up the stack, in packages that sit on lazy
+arrays:
+
+- [ndr](https://hypertidy.github.io/ndr/) (labelled n-dimensional arrays,
+  in the manner of xarray) selects with `do.call("[", ...)`. On stock R
+  it has to detect a lazy array and call `altarr_extract()`. With the
+  method it does not need to know.
+- [GDAL7](https://github.com/rgdal-dev/GDAL7) presents GDAL
+  multidimensional arrays and raster bands with `as_altarr()`. Given the
+  whole request, a band indexed as `b[rows, cols]` can be one GDAL read of
+  the window, with one `AdviseRead` ahead of it.
+- Any reader could do the same. The method is not specific to altarr:
+  arrow, a NetCDF or HDF5 package, a database-backed matrix, a
+  memory-mapped file class could each implement it.
+
+## Still open
+
+- **Wrapper classes in packages.** R's own wrapper forwards the method. A
+  package that defines its own ALTREP view over another object (rray 0.2.0
+  has one) cannot forward it, because the dispatch function is internal to
+  R. Whether to export it is a question for R core. Not yet tested here.
+- **Subassignment.** `x[i, j, k] <- value` on a lazy array materializes
+  it. A write-side method would be the companion to this one; it is not
+  part of this proposal.
+- **`is.na()`** has no ALTREP hook, so `mean(x, na.rm = TRUE)` still
+  walks elements. Subsetting first, then
+  computing on the ordinary array that comes back, is the pattern that
+  works, and it is the one this patch makes fast.

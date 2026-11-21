@@ -1,0 +1,102 @@
+# Build the book image, render the book in it, and optionally publish the
+# image. Runs on pull requests that touch the book, and by hand.
+name: book
+
+on:
+  pull_request:
+    paths:
+      - 'book/**'
+      - '.github/workflows/book.yaml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'live reads the remote stores; offline skips them'
+        type: choice
+        options: [live, offline]
+        default: live
+      with_icechunk:
+        description: 'Install Rust and tabularberg (a long compile, cached)'
+        type: boolean
+        default: true
+      publish:
+        description: 'Push the image to ghcr.io as :book if the render succeeds'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: book-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}:book
+      BOOK_MODE: ${{ inputs.mode || 'live' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the book image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: book/docker/Dockerfile
+          build-args: |
+            WITH_ICECHUNK=${{ github.event_name == 'pull_request' || inputs.with_icechunk }}
+          tags: ${{ env.IMAGE }}
+          load: true
+          cache-from: type=gha,scope=book
+          cache-to: type=gha,scope=book,mode=max
+
+      - name: Render
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work/book -e BOOK_MODE "$IMAGE" bash run.sh "$BOOK_MODE"
+
+      - name: Results
+        if: always()
+        run: |
+          {
+            echo "### book ($BOOK_MODE)"
+            echo
+            for f in book/results/*.csv; do
+              [ -f "$f" ] || continue
+              echo "#### $(basename "$f")"
+              echo '```'
+              cat "$f"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          for f in book/results/*.log; do
+            [ -f "$f" ] || continue
+            echo "::group::$(basename "$f")"
+            cat "$f"
+            echo "::endgroup::"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: book
+          path: |
+            book/_book
+            book/results
+          if-no-files-found: warn
+
+      - name: Log in to ghcr.io
+        if: inputs.publish
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish
+        if: inputs.publish
+        run: docker push "$IMAGE"

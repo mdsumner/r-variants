@@ -1,0 +1,60 @@
+# What planning buys: points {#sec-points}
+
+```{r}
+#| include: false
+source("R/book.R")
+```
+
+Start with what already works, because it shows what is at stake.
+
+A lazy array is cheap to hold and expensive to ask. Every question becomes
+chunks to fetch, and for a remote store the cost is round trips. If R hands
+over a whole question, the array can work out the distinct chunks it needs
+and fetch them together. If R asks piece by piece, the array answers piece
+by piece.
+
+For points, R hands over the whole question. A matrix subscript,
+`x[cbind(i, j, k)]`, is turned into linear positions and passed to the
+ALTREP `Extract_subset` method in one call.
+
+## The example
+
+A synthetic array laid out like the Copernicus global waves store (chunks
+of 4 x 8 cells, long in time), where each fetch call takes 50 ms. Three
+hundred scattered points, read two ways.
+
+```{r}
+#| echo: true
+#| eval: false
+#| file: scripts/01-points.R
+```
+
+```{r}
+res <- book_run("01-points.R")
+book_table(res)
+```
+
+The two reads touch the same chunks. The matrix subscript is one batch; the
+loop is one fetch call per chunk it had not seen yet. And the two builds of
+R agree: nothing in this chapter needs the patch.
+
+## On a real store
+
+The same shape of read against the live Copernicus waves Zarr (1800 x 899
+x 136,360 values of significant wave height, 3-hourly since 1980), run from
+a workstation on 2026-11-13 with
+[`examples/xyt-points`](https://github.com/mdsumner/r-variants/tree/main/examples/xyt-points):
+300 points in the Southern Ocean were one fetch call for 268 chunks in 23
+seconds at 8 connections, 15 seconds at 16 and 11 at 32. Done point by
+point it is 268 round trips in series.
+
+A layer-oriented reader can reach the same byte count, by grouping points
+by chunk, reading each group as a slab and picking out each point's layer.
+That is the planner written by hand. Here it is what `x[idx]` does.
+
+## So what is missing
+
+Points are the case R already gets right. The rest of the book is about
+the reads next to it: a time series at a station, `x[i, j, ]`; a map,
+`x[, , t]`; a box, `x[i0:i1, j0:j1, t0:t1]`. Those are the everyday
+array reads, and they are the ones R takes apart.
