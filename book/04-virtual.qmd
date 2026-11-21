@@ -67,10 +67,15 @@ book_elt(res)
 
 ::: {.callout-note}
 If the stock column says "failed", that is a result too. On the first
-renders of this chapter, from a GitHub runner on 2026-11-21, the patched
-build's surface map went through in two requests each time, and the stock
-build's 60 requests, one after another on new connections, were reset by
-the server on every attempt.
+three renders of this chapter, from a GitHub runner on 2026-11-21 and 22,
+the patched build completed every read, and the stock build completed
+none: each attempt ended with the server resetting a connection. The
+likely cause is the rate of new connections. On stock R every chunk is
+its own fetch call, and zaro opens a new connection for each call, so 60
+small chunks are 60 TLS handshakes in quick succession. The same stock
+loop against the same server in @sec-icechunk, at a slower pace, went
+through. Keeping connections open between fetch calls would help zaro
+here; asking once is what removes the problem.
 :::
 
 ## A track is already fine
