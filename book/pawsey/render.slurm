@@ -28,7 +28,11 @@ IMAGE="${BOOK_IMAGE:-docker://ghcr.io/mdsumner/r-variants:book}"
 SIF="${BOOK_SIF:-$MYSCRATCH/altarr-book/book.sif}"
 mkdir -p "$(dirname "$SIF")"
 
-module load "${BOOK_SINGULARITY_MODULE:-singularity/4.1.0-slurm}"
+# Singularity sits behind a pawseyenv release on Setonix, so both are
+# loaded; BOOK_SINGULARITY_MODULE takes the same space-separated list.
+# shellcheck disable=SC2086
+module load ${BOOK_SINGULARITY_MODULE:-pawseyenv/2025.08 singularity/4.1.0-slurm}
+command -v singularity > /dev/null || { echo "singularity not on PATH after module load" >&2; exit 1; }
 export SINGULARITY_CACHEDIR="${SINGULARITY_CACHEDIR:-$MYSCRATCH/.singularity}"
 
 if [ ! -f "$SIF" ] || [ "${BOOK_PULL:-}" = "1" ]; then
