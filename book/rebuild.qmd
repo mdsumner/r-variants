@@ -72,7 +72,7 @@ Settings, all optional, passed with `sbatch --export=ALL,NAME=value`:
 | `BOOK_PAUSE` | `60` | seconds between the two builds on a live script |
 | `BOOK_LATENCY` | `0.05` | seconds per fetch call in the simulated stores |
 | `BOOK_SIF` | `$MYSCRATCH/altarr-book/book.sif` | where the image is kept |
-| `BOOK_SINGULARITY_MODULE` | `singularity/4.1.0-slurm` | check with `module avail singularity` |
+| `BOOK_SINGULARITY_MODULE` | `pawseyenv/2025.08 singularity/4.1.0-slurm` | modules to load, in order; `module spider singularity` shows what a release needs |
 
 To render one chapter, pass it after the mode:
 
