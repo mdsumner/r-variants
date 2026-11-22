@@ -7,8 +7,16 @@ ALTARR_REF="${ALTARR_REF:-exp/r-hook}"
 ZARO_REF="${ZARO_REF:-main}"
 WITH_ICECHUNK="${WITH_ICECHUNK:-true}"
 
-git clone -q --depth 1 --branch "$ALTARR_REF" https://github.com/hypertidy/altarr.git /tmp/altarr
-git clone -q --depth 1 --branch "$ZARO_REF" https://github.com/hypertidy/zaro.git /tmp/zaro
+# a ref is a branch, a tag or a commit (the workflow passes commits, so that
+# a new commit upstream rebuilds this layer instead of reusing the cache)
+fetch_ref() {
+  git init -q "$3"
+  git -C "$3" fetch -q --depth 1 "https://github.com/$1.git" "$2"
+  git -C "$3" checkout -q FETCH_HEAD
+  echo "== $1 at $(git -C "$3" rev-parse --short HEAD) ($2)"
+}
+fetch_ref hypertidy/altarr "$ALTARR_REF" /tmp/altarr
+fetch_ref hypertidy/zaro "$ZARO_REF" /tmp/zaro
 
 if [ "$WITH_ICECHUNK" = "true" ]; then
   curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
