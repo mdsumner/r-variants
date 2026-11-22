@@ -7,8 +7,7 @@
 # bluelink-daily-temp: BRAN temperature, daily from 1993, (xt_ocean,
 #   yt_ocean, st_ocean 51, Time) in chunks of 300 x 300 x 1 x 1. Virtual
 #   chunks: byte ranges of netCDF files on NCI's THREDDS server, so a model
-#   profile under one dive is 51 chunks. Read here through the flat
-#   Parquet form of the same references (see the chapter for why).
+#   profile under one dive is 51 chunks. An Icechunk repository too.
 #
 # THREDDS accepts about 4 concurrent requests: BOOK_THREDDS_CON (default 4).
 here <- function() {
@@ -50,15 +49,18 @@ dives <- data.frame(profile = sel, lon = plon[sel], lat = plat[sel],
 print(dives)
 
 ## the model
-bran <- zaro_dataset(zaro(paste0("flatrefs://", coop,
-                                "bluelink/bluelink-daily-temp/flat"),
-                         target = "public"))
+## 37.5 million chunks: zaro asks the repository only about the chunks a
+## read needs (tabularberg::ic_chunk_refs(chunks =)), never the whole table
+bice <- zaro_icechunk(paste0(coop, "bluelink/bluelink-daily-temp/icechunk"),
+                      authorize = "https://", direct = TRUE)
+cat("bluelink-daily-temp snapshot:", bice@snapshot, "\n")
+bran <- zaro_dataset(bice)
 temp <- zaro_array(bran, "temp", cf = TRUE)              # degrees C, land as NA
 cat("temp:", paste(dim(temp), collapse = " x "), "\n")
 xt <- as.vector(zaro_read(bran, "xt_ocean"))
 yt <- as.vector(zaro_read(bran, "yt_ocean"))
 zt <- as.vector(zaro_read(bran, "st_ocean"))
-tunits <- bran$arrays$Time@attributes$units
+tunits <- zaro_meta(bice, "Time")@attributes$units
 days <- as.Date(sub("^days since ([0-9-]+).*", "\\1", tunits)) +
   as.vector(zaro_read(bran, "Time"))
 wrap <- function(v) ((v + 180) %% 360) - 180

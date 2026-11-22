@@ -21,6 +21,7 @@ FROM ${PATCHED}
 
 ARG ALTARR_REF=exp/r-hook
 ARG ZARO_REF=main
+ARG TABULARBERG_REF=main
 ARG QUARTO_VERSION=1.6.42
 ARG WITH_ICECHUNK=true
 
@@ -48,7 +49,8 @@ RUN /opt/R/variant/bin/Rscript -e ' \
                 requireNamespace("rmarkdown", quietly = TRUE))'
 
 COPY book/docker/install-packages.sh /opt/r-variants/install-packages.sh
-RUN ALTARR_REF="${ALTARR_REF}" ZARO_REF="${ZARO_REF}" WITH_ICECHUNK="${WITH_ICECHUNK}" \
+RUN ALTARR_REF="${ALTARR_REF}" ZARO_REF="${ZARO_REF}" \
+    TABULARBERG_REF="${TABULARBERG_REF}" WITH_ICECHUNK="${WITH_ICECHUNK}" \
     bash /opt/r-variants/install-packages.sh
 
 ENV BOOK_R_STOCK=/opt/R/baseline/bin/Rscript \

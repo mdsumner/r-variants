@@ -26,6 +26,9 @@ on:
       altarr_ref:
         description: 'altarr branch, tag or commit to install'
         default: exp/r-hook
+      tabularberg_ref:
+        description: 'tabularberg branch, tag or commit to install'
+        default: main
       publish:
         description: 'Push the image to ghcr.io as :book if the render succeeds'
         type: boolean
@@ -62,6 +65,7 @@ jobs:
         env:
           ZARO_REF: ${{ inputs.zaro_ref || 'main' }}
           ALTARR_REF: ${{ inputs.altarr_ref || 'exp/r-hook' }}
+          TABULARBERG_REF: ${{ inputs.tabularberg_ref || 'main' }}
         run: |
           resolve() {
             sha=$(git ls-remote "https://github.com/$1.git" "$2" | head -1 | cut -f1)
@@ -69,6 +73,7 @@ jobs:
           }
           echo "zaro=$(resolve hypertidy/zaro "$ZARO_REF")" >> "$GITHUB_OUTPUT"
           echo "altarr=$(resolve hypertidy/altarr "$ALTARR_REF")" >> "$GITHUB_OUTPUT"
+          echo "tabularberg=$(resolve hypertidy/tabularberg "$TABULARBERG_REF")" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
       - name: Build the book image
@@ -80,6 +85,7 @@ jobs:
             WITH_ICECHUNK=${{ github.event_name == 'pull_request' || inputs.with_icechunk }}
             ZARO_REF=${{ steps.refs.outputs.zaro }}
             ALTARR_REF=${{ steps.refs.outputs.altarr }}
+            TABULARBERG_REF=${{ steps.refs.outputs.tabularberg }}
           tags: ${{ env.IMAGE }}
           load: true
           cache-from: type=gha,scope=book
