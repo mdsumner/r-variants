@@ -92,5 +92,5 @@ On stock R-devel the same lines give `array_subset` 0 and thousands of
   can compare builds.
 - **GDAL.** `GDAL7::as_altarr()` on a multidimensional array and on a
   COG's overviews.
-- **Kerchunk and VirtualiZarr references**, alongside the flat
-  references in @sec-virtual.
+- **Kerchunk JSON and VirtualiZarr-written references**, alongside the
+  kerchunk Parquet store in @sec-virtual.

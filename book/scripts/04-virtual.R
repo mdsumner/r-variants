@@ -1,12 +1,11 @@
 # 04-virtual.R -- BRAN ocean temperature through a virtual store.
 # ASCII only.
 #
-# The data are monthly NetCDF files on NCI's THREDDS server. A reference
-# store on Source Cooperative (built by raad.virtualize) says where each
-# chunk's bytes are; zaro reads those byte ranges in place. temp is
-# (xt_ocean 3600, yt_ocean 1500, st_ocean 51, Time 12265: daily from 1993),
-# int16, chunks of 300 x 300 x 1 x 1. The references name the files as
-# they are on NCI's disks; target = "public" maps them to THREDDS.
+# The data are monthly NetCDF files on NCI's THREDDS server. A kerchunk
+# Parquet reference store on Source Cooperative (built by raad.virtualize)
+# says where each chunk's bytes are; zaro reads those byte ranges in
+# place. temp is (xt_ocean 3600, yt_ocean 1500, st_ocean 51, Time 12265:
+# daily from 1993), int16, chunks of 300 x 300 x 1 x 1.
 # THREDDS accepts about 4 concurrent requests: BOOK_THREDDS_CON (default 4).
 here <- function() {
   f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE))
@@ -18,9 +17,8 @@ options(zaro.verbose = FALSE,
         zaro.max_con = as.integer(Sys.getenv("BOOK_THREDDS_CON", "4")))
 count_http()
 
-bran <- zaro(paste0("flatrefs://https://data.source.coop/ausantarctic/",
-                    "ausantarctic-scratch/bluelink/bluelink-daily-temp/flat"),
-             target = "public")
+bran <- zaro(paste0("virtualizarr://https://data.source.coop/ausantarctic/",
+                    "ausantarctic-scratch/bluelink/bluelink-daily-temp/kerchunk"))
 ds <- zaro_dataset(bran)
 temp <- zaro_array(ds, "temp", cf = TRUE)       # degrees C, land as NA
 cat("temp:", paste(dim(temp), collapse = " x "), "\n")
