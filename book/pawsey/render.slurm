@@ -4,7 +4,6 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=16G
 #SBATCH --time=01:00:00
 #SBATCH --output=altarr-book-%j.log
 #
@@ -16,6 +15,11 @@
 # Optional settings (sbatch --export=ALL,NAME=value): BOOK_MODE, BOOK_PULL,
 # BOOK_MAX_CON, BOOK_LATENCY, BOOK_SIF, BOOK_IMAGE, BOOK_SINGULARITY_MODULE.
 # See book/rebuild.qmd.
+#
+# No --mem here: Setonix gives memory in proportion to cores (about
+# 1.8 GB each on the work partition), and asking for more than the cores
+# carry makes Slurm raise the core count behind the script's back. For
+# more memory, ask for more cores: sbatch --cpus-per-task=16 ...
 set -euo pipefail
 
 REPO="${SLURM_SUBMIT_DIR:-$PWD}"
@@ -56,7 +60,10 @@ done
 export SINGULARITYENV_TMPDIR=/work-tmp
 shift || true
 
-srun singularity exec --cleanenv \
+# A changed core count leaves SLURM_TRES_PER_TASK disagreeing with
+# SLURM_CPUS_PER_TASK, which srun refuses; say it once, explicitly.
+unset SLURM_TRES_PER_TASK
+srun --ntasks=1 --cpus-per-task="${SLURM_CPUS_PER_TASK:-8}" singularity exec --cleanenv \
   --home "$WORK/home:/book-home" \
   --bind "$REPO:/work" --bind "$WORK/tmp:/work-tmp" \
   --pwd /work/book "$SIF" bash run.sh "$SINGULARITYENV_BOOK_MODE" "$@"
