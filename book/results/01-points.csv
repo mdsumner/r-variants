@@ -1,0 +1,5 @@
+"case","hook","svn_rev","seconds","fetch_calls","chunks","elt","array_subset","requests","mb","attempts","n","check","build","run","host"
+"300 points: one x[cbind(i, j, k)]",TRUE,90638,0.209,1,287,0,0,NA,NA,1,300,917874250500,"patched","2026-11-22 00:09 UTC","nid002038"
+"300 points: a loop of x[i, j, k]",TRUE,90638,14.792,287,287,299,1,NA,NA,1,300,917874250500,"patched","2026-11-22 00:09 UTC","nid002038"
+"300 points: one x[cbind(i, j, k)]",FALSE,90638,0.214,1,287,0,0,NA,NA,1,300,917874250500,"stock","2026-11-22 00:09 UTC","nid002038"
+"300 points: a loop of x[i, j, k]",FALSE,90638,14.791,287,287,300,0,NA,NA,1,300,917874250500,"stock","2026-11-22 00:09 UTC","nid002038"

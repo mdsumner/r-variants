@@ -1,0 +1,7 @@
+"case","hook","svn_rev","seconds","fetch_calls","chunks","elt","array_subset","requests","mb","attempts","n","check","build","run","host"
+"seal: 5 dives of one animal, TEMP_ADJUSTED[, dives]",TRUE,90638,0.675999999999995,1,5,0,1,5,0.02,1,5000,6177.470418,"patched","2026-11-22 00:45 UTC","nid002038"
+"model: the profile under each dive, a loop of temp[i, j, , t]",TRUE,90638,11.011,5,255,0,5,255,15.209232,1,255,472.4046002,"patched","2026-11-22 00:45 UTC","nid002038"
+"model: the same values as one matrix subscript, temp[idx]",TRUE,90638,5.81000000000001,1,255,0,0,255,15.209232,1,255,472.4046002,"patched","2026-11-22 00:45 UTC","nid002038"
+"seal: 5 dives of one animal, TEMP_ADJUSTED[, dives]",FALSE,90638,1.259,5,5,5000,0,5,0.02,1,5000,6177.470418,"stock","2026-11-22 00:45 UTC","nid002038"
+"model: the profile under each dive, a loop of temp[i, j, , t]",FALSE,90638,84.557,255,255,255,0,255,15.209232,1,255,472.4046002,"stock","2026-11-22 00:45 UTC","nid002038"
+"model: the same values as one matrix subscript, temp[idx]",FALSE,90638,5.95999999999999,1,255,0,0,255,15.209232,1,255,472.4046002,"stock","2026-11-22 00:45 UTC","nid002038"
