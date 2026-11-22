@@ -27,6 +27,10 @@ into each, and Quarto. The **book** workflow in the repository builds the
 image, renders the book in it as a test, and publishes it when asked
 (Actions, **book**, **Run workflow**, `publish`).
 
+The same workflow can publish the book it rendered to GitHub Pages: tick
+`pages` when running it. That needs Pages set to "GitHub Actions" as its
+source, once, in the repository's settings.
+
 To move the book to a newer R-devel, rebuild and publish the
 `array-subset` variant first, then the book image. The preface prints
 what each build is.

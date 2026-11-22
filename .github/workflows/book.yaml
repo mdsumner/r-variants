@@ -1,12 +1,14 @@
 # Build the book image, render the book in it, and optionally publish the
-# image. Runs on pull requests that touch the book, and by hand.
+# image and the rendered book (GitHub Pages). Runs on pull requests that
+# touch the book's content, and by hand.
 name: book
 
 on:
   pull_request:
     paths:
       - 'book/**'
-      - '.github/workflows/book.yaml'
+      - '!book/pawsey/**'
+      - '!book/README.md'
   workflow_dispatch:
     inputs:
       mode:
@@ -20,6 +22,10 @@ on:
         default: true
       publish:
         description: 'Push the image to ghcr.io as :book if the render succeeds'
+        type: boolean
+        default: false
+      pages:
+        description: 'Publish the rendered book to GitHub Pages'
         type: boolean
         default: false
 
@@ -100,3 +106,24 @@ jobs:
       - name: Publish
         if: inputs.publish
         run: docker push "$IMAGE"
+
+      - name: Book for Pages
+        if: inputs.pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: book/_book
+
+  # Needs Pages set to "GitHub Actions" as its source (Settings, Pages).
+  pages:
+    if: inputs.pages
+    needs: book
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
