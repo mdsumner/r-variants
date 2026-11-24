@@ -1,0 +1,9 @@
+Package: altsubtest
+Version: 0.0.1
+Title: Test ALTREP Class for the Extract_array_subset Method
+Description: A minimal ALTREP double class that implements the proposed
+    Extract_array_subset method, with switchable misbehaviour, to test the
+    MatrixSubset() and ArraySubset() hooks in R.
+Author: Michael Sumner
+Maintainer: Michael Sumner <mdsumner@gmail.com>
+License: GPL-2 | GPL-3

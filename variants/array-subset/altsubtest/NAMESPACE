@@ -1,0 +1,2 @@
+useDynLib(altsubtest, .registration = TRUE)
+export(altsub, altsub_counts)
