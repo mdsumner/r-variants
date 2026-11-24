@@ -1,0 +1,51 @@
+How the Extract_array_subset patch was made
+===========================================
+
+Author: Michael Sumner (accountable for every line).
+
+Tools
+-----
+- Claude Code, Anthropic's command-line coding agent, running the Claude
+  Opus 5.5 model, in a Linux (Ubuntu) container with gcc, git and R's
+  build dependencies.
+- R-devel source from the git mirror of svn (github.com/r-devel/r-svn).
+
+Steps
+-----
+1. 4 Oct 2026, svn r90638. Goal given to the assistant: let an ALTREP
+   class answer x[i, j, ...] in one call, by adding an ALTVEC method
+   modelled on the existing Extract_subset method, called from
+   MatrixSubset() and ArraySubset() with the subscripts they have already
+   normalized, and declining by returning C NULL. The assistant read
+   src/main/subset.c, subscript.c, altrep.c and altclasses.c, wrote the
+   6-file change (+106/-3, including NEWS), built R, ran make check, and
+   implemented the method in the altarr package (branch exp/r-hook) to
+   test it.
+2. 15 Oct 2026. Wrote a minimal test package (altsubtest) with
+   switchable misbehaviour, and a line-by-line study guide for my review.
+   Testing found: the method's bounds loop never fires
+   (int_arraySubscript() already errors), and a method that writes into
+   'subs' can change the caller's index vector, as with Extract_subset.
+3. 26 Oct 2026, r90726, after my review: removed the redundant bounds
+   loop, and documented in Altrep.h that C NULL (not R_NilValue) declines
+   and that 'subs' must not be modified. Result: +101/-3.
+
+Verification (on patched r90726)
+--------------------------------
+- make check: passes (only the expected reg-plot-latin1 failure in a C
+  locale).
+- altarr exp/r-hook: tests/test-altarr.R and r-patch/demo.R.
+- altsubtest: tests/test-hook.R, tests/test-wrapper.R, including
+  gctorture(TRUE), wrappers, dimnames, NA, negative, logical and
+  character subscripts, and each misbehaving method.
+
+To reproduce
+------------
+Everything is in https://github.com/mdsumner/r-variants
+(variants/array-subset/: the patch, altsubtest/, README).
+
+  R_SVN_REF=<r-svn commit> VARIANT_DIR=variants/array-subset \
+    MAKE_CHECK=true PREFIX=$HOME/R-array-subset scripts/build-r.sh
+
+or use the prebuilt image ghcr.io/mdsumner/r-variants:array-subset.
+Before/after commands against stock R: r-variants issue #4.

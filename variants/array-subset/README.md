@@ -40,5 +40,42 @@ y <- x[1:40, 1:20, 1:3]
 altarr_stats(x)[c("array_subset", "elt", "fetch_calls")]   # 1, 0, 1
 ```
 
-Compare with the `baseline` image, where the same lines give
-`array_subset` 0 and thousands of `elt` reads.
+Compare with stock R (for example the `r-base` image), where the same
+lines give `array_subset` 0 and thousands of `elt` reads. More
+before/after commands are in
+[issue #4](https://github.com/mdsumner/r-variants/issues/4).
+
+## Rebuild without Docker
+
+On Debian or Ubuntu with R's build dependencies installed:
+
+```sh
+R_SVN_REF=<r-svn commit> VARIANT_DIR=variants/array-subset \
+  MAKE_CHECK=true PREFIX=$HOME/R-array-subset scripts/build-r.sh
+```
+
+This fetches that R-devel commit from the r-devel/r-svn mirror, applies
+`patches/*.patch`, builds R and runs `make check`.
+
+## Test package
+
+`altsubtest/` is a minimal ALTREP double class that implements the
+method, with switchable misbehaviour (declining, returning `R_NilValue`,
+a wrong length, attributes, a shared result, writing into `subs`). On the
+patched R:
+
+```sh
+R CMD INSTALL variants/array-subset/altsubtest
+Rscript variants/array-subset/altsubtest/tests/test-hook.R
+Rscript variants/array-subset/altsubtest/tests/test-wrapper.R
+```
+
+On stock R it still builds (the method is behind
+`#ifdef R_ALTREP_HAS_EXTRACT_ARRAY_SUBSET`), so the same scripts show the
+element-by-element counts.
+
+## How the patch was made
+
+The patch was written with Claude Code (Anthropic) running Claude Opus
+5.5, then reviewed line by line and revised by Michael Sumner, who is the
+accountable author. See `HOW-MADE.txt`.
